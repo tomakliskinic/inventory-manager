@@ -36,6 +36,8 @@ This application will allow players to create and manage characters and their in
 
 This project is in early development. The feature list above reflects the full planned scope — not all features are implemented yet.
 
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
 ## Tech Stack
 
 | Technology | Purpose |
@@ -45,14 +47,6 @@ This project is in early development. The feature list above reflects the full p
 | SQLite | Local persistent database |
 | JSON | Data import/export |
 | Git / GitHub | Version control |
-
-## Changelog
-
-### 2026-03-28
-- SQLite schema added: 6 tables (characters, character_coins, item_definitions, weapon_details, armor_details, inventory_items)
-
-### 2026-03-15
-- Initial project setup — repository and README created
 
 ## Disclaimer
 
