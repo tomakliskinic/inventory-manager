@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS character_coins (
 
 CREATE TABLE IF NOT EXISTS item_definitions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     item_type INTEGER NOT NULL,
     weight_lb REAL NOT NULL DEFAULT 0.0 CHECK (weight_lb >= 0),
     cost TEXT,
