@@ -4,7 +4,7 @@ project(inventoryManager VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Quick Sql)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -16,7 +16,22 @@ qt_add_qml_module(appinventoryManager
     URI inventoryManager
     QML_FILES
         Main.qml
+    SOURCES
+        enums.h
+        databasemanager.h databasemanager.cpp
 )
+
+qt_add_resources(appinventoryManager "sql_resources"
+    PREFIX "/sql"
+    BASE "database/sql"
+    FILES
+        database/sql/00_full_schema.sql
+        database/sql/seed_01_weapons.sql
+        database/sql/seed_02_armor.sql
+        database/sql/seed_03_gear.sql
+        database/sql/seed_04_tools.sql
+        database/sql/seed_05_magic.sql
+    )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -30,7 +45,7 @@ set_target_properties(appinventoryManager PROPERTIES
 )
 
 target_link_libraries(appinventoryManager
-    PRIVATE Qt6::Quick
+    PRIVATE Qt6::Quick Qt6::Sql
 )
 
 install(TARGETS appinventoryManager
