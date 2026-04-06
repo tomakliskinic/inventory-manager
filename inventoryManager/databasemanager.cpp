@@ -257,6 +257,11 @@ QVariantMap DatabaseManager::getArmorDetails(int itemId)
 
 int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity, int parentId)
 {
+    if (parentId > 0 && !isContainer(parentId)) {
+        qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
+        return -1;
+    }
+
     QSqlQuery query(m_db);
     query.prepare(R"(INSERT INTO inventory_items (character_id, item_id, quantity, parent_inventory_item_id) VALUES (:characterId, :itemId, :quantity, :parentId))");
     query.bindValue(":characterId", characterId);
@@ -274,6 +279,19 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
 
 bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
 {
+    int parentId = data.value("parent_inventory_item_id", -1).toInt();
+
+    if (parentId > 0) {
+        if (!isContainer(parentId)) {
+            qWarning() << "updateInventoryItem failed: parent " << parentId << " is not a container";
+            return false;
+        }
+        if (wouldCreateCycle(id, parentId)) {
+            qWarning() << "updateInventoryItem failed: placing item " << id << " inside " << parentId << " would create a cycle";
+            return false;
+        }
+    }
+
     QSqlQuery query(m_db);
     query.prepare(R"(UPDATE inventory_items SET quantity=:quantity, parent_inventory_item_id =:parentId, is_equipped = :isEquipped, custom_name = :customName, notes=:notes WHERE id=:id)");
     query.bindValue(":id", id);
@@ -281,9 +299,8 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
     query.bindValue(":isEquipped", data.value("is_equipped", 0));
     query.bindValue(":customName", data.value("custom_name"));
     query.bindValue(":notes", data.value("notes"));
-
-    int parentId = data.value("parent_inventory_item_id", -1).toInt();
     query.bindValue(":parentId", parentId > 0 ? parentId : QVariant());
+
     if (!query.exec()) {
         qWarning() << "updateInventoryItem failed: " << query.lastError().text();
         return false;
@@ -482,4 +499,31 @@ bool DatabaseManager::runSeedData()
             return false;
     }
     return true;
+}
+
+bool DatabaseManager::isContainer(int inventoryItemId)
+{
+    QSqlQuery query(m_db);
+    query.prepare(R"(SELECT idef.is_container FROM inventory_items ii JOIN item_definitions idef ON ii.item_id = idef.id WHERE ii.id = :id)");
+    query.bindValue(":id", inventoryItemId);
+    if (!query.exec() || !query.next())
+        return false;
+    return query.value(0).toBool();
+}
+
+bool DatabaseManager::wouldCreateCycle(int itemId, int parentId)
+{
+    int current = parentId;
+    while (current > 0) {
+        if (current == itemId)
+            return true;
+        QSqlQuery query(m_db);
+        query.prepare("SELECT parent_inventory_item_id FROM inventory_items WHERE id = :id");
+        query.bindValue(":id", current);
+        if (!query.exec() || !query.next())
+            return false;
+        QVariant val = query.value(0);
+        current = val.isNull() ? -1 : val.toInt();
+    }
+    return false;
 }

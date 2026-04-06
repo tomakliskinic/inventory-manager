@@ -47,6 +47,8 @@ private:
     bool isNewDatabase();
     bool runSchema();
     bool runSeedData();
+    bool isContainer(int inventoryItemId);
+    bool wouldCreateCycle(int itemId, int parentId);
 
     QSqlDatabase m_db;
     bool m_initialized = false;
