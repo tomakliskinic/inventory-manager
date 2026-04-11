@@ -87,16 +87,24 @@ int DatabaseManager::createCharacter(const QVariantMap &data)
 
 bool DatabaseManager::updateCharacter(int id, const QVariantMap &data)
 {
+    static const QStringList allowed = {"name", "level", "strength", "size", "race", "class", "notes"};
+
+    QStringList assignments;
+    for (const QString &field : allowed) {
+        if (data.contains(field))
+            assignments << field + " = :" + field;
+    }
+
+    if (assignments.isEmpty())
+        return false;
+
     QSqlQuery query(m_db);
-    query.prepare(R"(UPDATE characters SET name = :name, level = :level, strength = :strength, size = :size, race = :race, class = :class, notes = :notes WHERE id = :id)");
+    query.prepare("UPDATE characters SET " + assignments.join(", ") + " WHERE id = :id");
     query.bindValue(":id", id);
-    query.bindValue(":name", data.value("name"));
-    query.bindValue(":level", data.value("level"));
-    query.bindValue(":strength", data.value("strength"));
-    query.bindValue(":size", data.value("size"));
-    query.bindValue(":race", data.value("race"));
-    query.bindValue(":class", data.value("class"));
-    query.bindValue(":notes", data.value("notes"));
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+        if (allowed.contains(it.key()))
+            query.bindValue(":" + it.key(), it.value());
+    }
 
     if (!query.exec()) {
         qWarning() << "updateCharacter failed: " << query.lastError().text();
