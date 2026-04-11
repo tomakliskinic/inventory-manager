@@ -379,10 +379,20 @@ QVariantList DatabaseManager::getContainerContents(int inventoryItemId)
 
 double DatabaseManager::getTotalWeight(int characterId)
 {
-    //count everything
-    //add fixed weight containers later
     QSqlQuery query(m_db);
-    query.prepare(R"(SELECT COALESCE(SUM(idef.weight_lb * ii.quantity), 0.0) FROM inventory_items ii JOIN item_definitions idef ON ii.item_id = idef.id WHERE ii.character_id = :characterId)");
+    query.prepare(R"(WITH RECURSIVE tree AS (
+        SELECT ii.id, ii.quantity, idef.weight_lb, idef.fixed_weight
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.character_id = :characterId AND ii.parent_inventory_item_id IS NULL
+        UNION ALL
+        SELECT ii.id, ii.quantity, idef.weight_lb, idef.fixed_weight
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        JOIN tree t ON ii.parent_inventory_item_id = t.id
+        WHERE t.fixed_weight IS NULL
+    )
+    SELECT COALESCE(SUM(COALESCE(fixed_weight, weight_lb) * quantity), 0.0) FROM tree)");
     query.bindValue(":characterId", characterId);
     if (!query.exec() || !query.next())
         return 0.0;
