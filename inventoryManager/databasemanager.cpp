@@ -265,9 +265,25 @@ QVariantMap DatabaseManager::getArmorDetails(int itemId)
 
 int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity, int parentId)
 {
-    if (parentId > 0 && !isContainer(parentId)) {
-        qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
-        return -1;
+    if (parentId > 0) {
+        if (!isContainer(parentId)) {
+            qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
+            return -1;
+        }
+
+        QSqlQuery weightQuery(m_db);
+        weightQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb) FROM item_definitions WHERE id = :id");
+        weightQuery.bindValue(":id", itemId);
+        if (!weightQuery.exec() || !weightQuery.next()) {
+            qWarning() << "addInventoryItem failed: item definition" << itemId << "not found";
+            return -1;
+        }
+        double additional = weightQuery.value(0).toDouble() * quantity;
+
+        if (wouldExceedCapacity(parentId, additional)) {
+            qWarning() << "addInventoryItem failed: container chain would exceed weight capacity";
+            return -1;
+        }
     }
 
     QSqlQuery query(m_db);
@@ -296,6 +312,25 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
         }
         if (wouldCreateCycle(id, parentId)) {
             qWarning() << "updateInventoryItem failed: placing item " << id << " inside " << parentId << " would create a cycle";
+            return false;
+        }
+
+        QSqlQuery lookup(m_db);
+        lookup.prepare(R"(SELECT COALESCE(idef.fixed_weight, idef.weight_lb)
+            FROM inventory_items ii
+            JOIN item_definitions idef ON ii.item_id = idef.id
+            WHERE ii.id = :id)");
+        lookup.bindValue(":id", id);
+        if (!lookup.exec() || !lookup.next()) {
+            qWarning() << "updateInventoryItem failed: item" << id << "not found";
+            return false;
+        }
+        double perUnit = lookup.value(0).toDouble();
+        int newQty = data.value("quantity", 1).toInt();
+        double additional = perUnit * newQty + interiorWeight(id);
+
+        if (wouldExceedCapacity(parentId, additional, id)) {
+            qWarning() << "updateInventoryItem failed: container chain would exceed weight capacity";
             return false;
         }
     }
@@ -542,6 +577,69 @@ bool DatabaseManager::wouldCreateCycle(int itemId, int parentId)
             return false;
         QVariant val = query.value(0);
         current = val.isNull() ? -1 : val.toInt();
+    }
+    return false;
+}
+
+double DatabaseManager::interiorWeight(int rootId, int excludeItemId)
+{
+    QString sql =
+        "WITH RECURSIVE tree AS ("
+        "  SELECT ii.id, ii.quantity, idef.weight_lb, idef.fixed_weight "
+        "  FROM inventory_items ii "
+        "  JOIN item_definitions idef ON ii.item_id = idef.id "
+        "  WHERE ii.parent_inventory_item_id = :rootId";
+    if (excludeItemId > 0)
+        sql += " AND ii.id != :excludeId";
+    sql +=
+        "  UNION ALL "
+        "  SELECT ii.id, ii.quantity, idef.weight_lb, idef.fixed_weight "
+        "  FROM inventory_items ii "
+        "  JOIN item_definitions idef ON ii.item_id = idef.id "
+        "  JOIN tree t ON ii.parent_inventory_item_id = t.id "
+        "  WHERE t.fixed_weight IS NULL";
+    if (excludeItemId > 0)
+        sql += " AND ii.id != :excludeId";
+    sql +=
+        ") SELECT COALESCE(SUM(COALESCE(fixed_weight, weight_lb) * quantity), 0.0) FROM tree";
+
+    QSqlQuery query(m_db);
+    query.prepare(sql);
+    query.bindValue(":rootId", rootId);
+    if (excludeItemId > 0)
+        query.bindValue(":excludeId", excludeItemId);
+    if (!query.exec() || !query.next())
+        return 0.0;
+    return query.value(0).toDouble();
+}
+
+bool DatabaseManager::wouldExceedCapacity(int parentId, double additionalWeight, int excludeItemId)
+{
+    int current = parentId;
+    while (current > 0) {
+        QSqlQuery query(m_db);
+        query.prepare(R"(SELECT idef.container_weight_capacity, idef.fixed_weight, ii.parent_inventory_item_id
+            FROM inventory_items ii
+            JOIN item_definitions idef ON ii.item_id = idef.id
+            WHERE ii.id = :id)");
+        query.bindValue(":id", current);
+        if (!query.exec() || !query.next())
+            return false;
+        QVariant capVal = query.value(0);
+        QVariant fwVal = query.value(1);
+        QVariant parentVal = query.value(2);
+
+        if (!capVal.isNull()) {
+            double capacity = capVal.toDouble();
+            double used = interiorWeight(current, excludeItemId);
+            if (used + additionalWeight > capacity)
+                return true;
+        }
+
+        if (!fwVal.isNull())
+            break;
+
+        current = parentVal.isNull() ? -1 : parentVal.toInt();
     }
     return false;
 }
