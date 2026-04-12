@@ -104,11 +104,24 @@ bool DatabaseManager::updateCharacter(int id, const QVariantMap &data)
     if (assignments.isEmpty())
         return false;
 
+    QString trimmedName;
+    if (data.contains("name")) {
+        trimmedName = data.value("name").toString().trimmed();
+        if (trimmedName.isEmpty()) {
+            qWarning() << "updateCharacter failed: name cannot be empty";
+            return false;
+        }
+    }
+
     QSqlQuery query(m_db);
     query.prepare("UPDATE characters SET " + assignments.join(", ") + " WHERE id = :id");
     query.bindValue(":id", id);
     for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
-        if (allowed.contains(it.key()))
+        if (!allowed.contains(it.key()))
+            continue;
+        if (it.key() == "name")
+            query.bindValue(":name", trimmedName);
+        else
             query.bindValue(":" + it.key(), it.value());
     }
 
