@@ -501,13 +501,7 @@ double DatabaseManager::getCarryingCapacity(int characterId)
 
 double DatabaseManager::getContainerUsedWeight(int inventoryItemId)
 {
-    QSqlQuery query(m_db);
-    query.prepare(R"(SELECT COALESCE(SUM(idef.weight_lb * ii.quantity), 0.0) FROM inventory_items ii JOIN item_definitions idef ON ii.item_id = idef.id
-    WHERE ii.parent_inventory_item_id=:parentId)");
-    query.bindValue(":parentId", inventoryItemId);
-    if (!query.exec()|| !query.next())
-        return 0.0;
-    return query.value(0).toDouble();
+    return interiorWeight(inventoryItemId);
 }
 
 bool DatabaseManager::executeSql(const QString &sql)
