@@ -175,14 +175,25 @@ QVariantMap DatabaseManager::getCoins(int characterId)
 
 bool DatabaseManager::updateCoins(int characterId, const QVariantMap &coins)
 {
+    static const QStringList allowed = {"cp", "sp", "ep", "gp", "pp"};
+
+    QStringList assignments;
+    for (const QString &field : allowed) {
+        if (coins.contains(field))
+            assignments << field + " = :" + field;
+    }
+
+    if (assignments.isEmpty())
+        return false;
+
     QSqlQuery query(m_db);
-    query.prepare(R"(UPDATE character_coins SET cp=:cp, sp=:sp, ep=:ep, gp=:gp, pp=:pp WHERE character_id=:id)");
+    query.prepare("UPDATE character_coins SET " + assignments.join(", ") + " WHERE character_id = :id");
     query.bindValue(":id", characterId);
-    query.bindValue(":cp", coins.value("cp",0));
-    query.bindValue(":sp", coins.value("sp",0));
-    query.bindValue(":ep", coins.value("ep",0));
-    query.bindValue(":gp", coins.value("gp",0));
-    query.bindValue(":pp", coins.value("pp",0));
+    for (auto it = coins.constBegin(); it != coins.constEnd(); ++it) {
+        if (allowed.contains(it.key()))
+            query.bindValue(":" + it.key(), it.value());
+    }
+
     if (!query.exec()) {
         qWarning() << "updateCoins failed: " << query.lastError().text();
         return false;
@@ -303,46 +314,78 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
 
 bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
 {
-    int parentId = data.value("parent_inventory_item_id", -1).toInt();
+    static const QStringList allowed = {"quantity", "parent_inventory_item_id", "is_equipped", "custom_name", "notes"};
 
-    if (parentId > 0) {
-        if (!isContainer(parentId)) {
-            qWarning() << "updateInventoryItem failed: parent " << parentId << " is not a container";
-            return false;
-        }
-        if (wouldCreateCycle(id, parentId)) {
-            qWarning() << "updateInventoryItem failed: placing item " << id << " inside " << parentId << " would create a cycle";
-            return false;
-        }
+    QStringList assignments;
+    for (const QString &field : allowed) {
+        if (data.contains(field))
+            assignments << field + " = :" + field;
+    }
 
-        QSqlQuery lookup(m_db);
-        lookup.prepare(R"(SELECT COALESCE(idef.fixed_weight, idef.weight_lb)
-            FROM inventory_items ii
-            JOIN item_definitions idef ON ii.item_id = idef.id
-            WHERE ii.id = :id)");
-        lookup.bindValue(":id", id);
-        if (!lookup.exec() || !lookup.next()) {
+    if (assignments.isEmpty())
+        return false;
+
+    const bool parentChanging = data.contains("parent_inventory_item_id");
+    const bool quantityChanging = data.contains("quantity");
+
+    if (parentChanging || quantityChanging) {
+        QSqlQuery current(m_db);
+        current.prepare("SELECT quantity, parent_inventory_item_id FROM inventory_items WHERE id = :id");
+        current.bindValue(":id", id);
+        if (!current.exec() || !current.next()) {
             qWarning() << "updateInventoryItem failed: item" << id << "not found";
             return false;
         }
-        double perUnit = lookup.value(0).toDouble();
-        int newQty = data.value("quantity", 1).toInt();
-        double additional = perUnit * newQty + interiorWeight(id);
+        int effectiveQty = quantityChanging ? data.value("quantity").toInt() : current.value(0).toInt();
+        QVariant currentParentVal = current.value(1);
+        int effectiveParent = parentChanging
+            ? data.value("parent_inventory_item_id", -1).toInt()
+            : (currentParentVal.isNull() ? -1 : currentParentVal.toInt());
 
-        if (wouldExceedCapacity(parentId, additional, id)) {
-            qWarning() << "updateInventoryItem failed: container chain would exceed weight capacity";
-            return false;
+        if (effectiveParent > 0) {
+            if (parentChanging) {
+                if (!isContainer(effectiveParent)) {
+                    qWarning() << "updateInventoryItem failed: parent" << effectiveParent << "is not a container";
+                    return false;
+                }
+                if (wouldCreateCycle(id, effectiveParent)) {
+                    qWarning() << "updateInventoryItem failed: placing item" << id << "inside" << effectiveParent << "would create a cycle";
+                    return false;
+                }
+            }
+
+            QSqlQuery lookup(m_db);
+            lookup.prepare(R"(SELECT COALESCE(idef.fixed_weight, idef.weight_lb)
+                FROM inventory_items ii
+                JOIN item_definitions idef ON ii.item_id = idef.id
+                WHERE ii.id = :id)");
+            lookup.bindValue(":id", id);
+            if (!lookup.exec() || !lookup.next()) {
+                qWarning() << "updateInventoryItem failed: item" << id << "not found";
+                return false;
+            }
+            double additional = lookup.value(0).toDouble() * effectiveQty + interiorWeight(id);
+
+            if (wouldExceedCapacity(effectiveParent, additional, id)) {
+                qWarning() << "updateInventoryItem failed: container chain would exceed weight capacity";
+                return false;
+            }
         }
     }
 
     QSqlQuery query(m_db);
-    query.prepare(R"(UPDATE inventory_items SET quantity=:quantity, parent_inventory_item_id =:parentId, is_equipped = :isEquipped, custom_name = :customName, notes=:notes WHERE id=:id)");
+    query.prepare("UPDATE inventory_items SET " + assignments.join(", ") + " WHERE id = :id");
     query.bindValue(":id", id);
-    query.bindValue(":quantity", data.value("quantity", 1));
-    query.bindValue(":isEquipped", data.value("is_equipped", 0));
-    query.bindValue(":customName", data.value("custom_name"));
-    query.bindValue(":notes", data.value("notes"));
-    query.bindValue(":parentId", parentId > 0 ? parentId : QVariant());
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+        if (!allowed.contains(it.key()))
+            continue;
+        if (it.key() == "parent_inventory_item_id") {
+            int p = it.value().toInt();
+            query.bindValue(":parent_inventory_item_id", p > 0 ? QVariant(p) : QVariant());
+        } else {
+            query.bindValue(":" + it.key(), it.value());
+        }
+    }
 
     if (!query.exec()) {
         qWarning() << "updateInventoryItem failed: " << query.lastError().text();
