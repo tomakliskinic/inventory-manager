@@ -67,9 +67,15 @@ bool DatabaseManager::isInitialized() const
 
 int DatabaseManager::createCharacter(const QVariantMap &data)
 {
+    QString name = data.value("name").toString().trimmed();
+    if (name.isEmpty()) {
+        qWarning() << "createCharacter failed: name is required";
+        return -1;
+    }
+
     QSqlQuery query(m_db);
     query.prepare(R"(INSERT INTO characters (name, level, strength, size, race, class, notes) VALUES (:name, :level, :strength, :size, :race, :class, :notes))");
-    query.bindValue(":name", data.value("name"));
+    query.bindValue(":name", name);
     query.bindValue(":level", data.value("level", 1));
     query.bindValue(":strength", data.value("strength", 10));
     query.bindValue(":size", data.value("size", static_cast<int>(Enums::CreatureSize::Medium)));
