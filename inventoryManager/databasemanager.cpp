@@ -474,7 +474,7 @@ double DatabaseManager::getTotalWeight(int characterId)
     query.bindValue(":characterId", characterId);
     if (!query.exec() || !query.next())
         return 0.0;
-    return query.value(0).toDouble();
+    return query.value(0).toDouble() + getCoinWeight(characterId);
 }
 
 double DatabaseManager::getCoinWeight(int characterId)
