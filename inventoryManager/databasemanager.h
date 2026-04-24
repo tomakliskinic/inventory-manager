@@ -50,6 +50,7 @@ private:
     bool runSchema();
     bool runSeedData();
     bool isContainer(int inventoryItemId);
+    int getItemOwner(int inventoryItemId);
     bool wouldCreateCycle(int itemId, int parentId);
     double interiorWeight(int rootId, int excludeItemId = -1);
     bool wouldExceedCapacity(int parentId, double additionalWeight, int excludeItemId = -1);

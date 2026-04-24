@@ -300,6 +300,10 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
             qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
             return -1;
         }
+        if (getItemOwner(parentId) != characterId) {
+            qWarning() << "addInventoryItem failed: parent" << parentId << "belongs to a different character";
+            return -1;
+        }
 
         QSqlQuery weightQuery(m_db);
         weightQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb) FROM item_definitions WHERE id = :id");
@@ -365,6 +369,10 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
             if (parentChanging) {
                 if (!isContainer(effectiveParent)) {
                     qWarning() << "updateInventoryItem failed: parent" << effectiveParent << "is not a container";
+                    return false;
+                }
+                if (getItemOwner(effectiveParent) != getItemOwner(id)) {
+                    qWarning() << "updateInventoryItem failed: parent" << effectiveParent << "belongs to a different character";
                     return false;
                 }
                 if (wouldCreateCycle(id, effectiveParent)) {
@@ -476,6 +484,10 @@ bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int d
             }
             if (!isContainer(destinationContainerId)) {
                 qWarning() << "removeInventoryItem failed: destination" << destinationContainerId << "is not a container";
+                return false;
+            }
+            if (getItemOwner(destinationContainerId) != getItemOwner(id)) {
+                qWarning() << "removeInventoryItem failed: destination" << destinationContainerId << "belongs to a different character";
                 return false;
             }
             if (wouldCreateCycle(id, destinationContainerId)) {
@@ -705,6 +717,16 @@ bool DatabaseManager::isContainer(int inventoryItemId)
     if (!query.exec() || !query.next())
         return false;
     return query.value(0).toBool();
+}
+
+int DatabaseManager::getItemOwner(int inventoryItemId)
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT character_id FROM inventory_items WHERE id = :id");
+    query.bindValue(":id", inventoryItemId);
+    if (!query.exec() || !query.next())
+        return -1;
+    return query.value(0).toInt();
 }
 
 bool DatabaseManager::wouldCreateCycle(int itemId, int parentId)
