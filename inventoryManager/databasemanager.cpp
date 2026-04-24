@@ -295,6 +295,20 @@ QVariantMap DatabaseManager::getArmorDetails(int itemId)
 
 int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity, int parentId)
 {
+    if (quantity < 1) {
+        qWarning() << "addInventoryItem failed: quantity must be at least 1";
+        return -1;
+    }
+
+    QSqlQuery weightQuery(m_db);
+    weightQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb) FROM item_definitions WHERE id = :id");
+    weightQuery.bindValue(":id", itemId);
+    if (!weightQuery.exec() || !weightQuery.next()) {
+        qWarning() << "addInventoryItem failed: item definition" << itemId << "not found";
+        return -1;
+    }
+    double itemWeight = weightQuery.value(0).toDouble();
+
     if (parentId > 0) {
         if (!isContainer(parentId)) {
             qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
@@ -304,17 +318,7 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
             qWarning() << "addInventoryItem failed: parent" << parentId << "belongs to a different character";
             return -1;
         }
-
-        QSqlQuery weightQuery(m_db);
-        weightQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb) FROM item_definitions WHERE id = :id");
-        weightQuery.bindValue(":id", itemId);
-        if (!weightQuery.exec() || !weightQuery.next()) {
-            qWarning() << "addInventoryItem failed: item definition" << itemId << "not found";
-            return -1;
-        }
-        double additional = weightQuery.value(0).toDouble() * quantity;
-
-        if (wouldExceedCapacity(parentId, additional)) {
+        if (wouldExceedCapacity(parentId, itemWeight * quantity)) {
             qWarning() << "addInventoryItem failed: container chain would exceed weight capacity";
             return -1;
         }
