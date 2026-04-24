@@ -413,10 +413,97 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
     return query.numRowsAffected() > 0;
 }
 
-bool DatabaseManager::removeInventoryItem(int id)
+bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int destinationContainerId)
 {
+    QSqlQuery childCheck(m_db);
+    childCheck.prepare("SELECT COUNT(*) FROM inventory_items WHERE parent_inventory_item_id = :id");
+    childCheck.bindValue(":id", id);
+    if (!childCheck.exec() || !childCheck.next())
+        return false;
+
+    int childCount = childCheck.value(0).toInt();
+
+    if (childCount > 0) {
+        QSqlQuery parentQuery(m_db);
+        parentQuery.prepare("SELECT parent_inventory_item_id FROM inventory_items WHERE id = :id");
+        parentQuery.bindValue(":id", id);
+        if (!parentQuery.exec() || !parentQuery.next())
+            return false;
+        QVariant parentVal = parentQuery.value(0);
+        int parentId = parentVal.isNull() ? -1 : parentVal.toInt();
+
+        switch (mode) {
+        case Enums::RemovalMode::SpillToParent: {
+            if (parentId > 0) {
+                double contentsWeight = interiorWeight(id);
+                if (wouldExceedCapacity(parentId, contentsWeight, id)) {
+                    qWarning() << "removeInventoryItem failed: spilling contents would exceed parent container capacity";
+                    return false;
+                }
+            }
+
+            QSqlQuery reparent(m_db);
+            reparent.prepare("UPDATE inventory_items SET parent_inventory_item_id = :newParent WHERE parent_inventory_item_id = :id");
+            reparent.bindValue(":newParent", parentId > 0 ? QVariant(parentId) : QVariant());
+            reparent.bindValue(":id", id);
+            if (!reparent.exec()) {
+                qWarning() << "removeInventoryItem failed: could not reparent children";
+                return false;
+            }
+            break;
+        }
+        case Enums::RemovalMode::DeleteAll: {
+            QSqlQuery deleteChildren(m_db);
+            deleteChildren.prepare(R"(
+                WITH RECURSIVE descendants AS (
+                    SELECT id FROM inventory_items WHERE parent_inventory_item_id = :id
+                    UNION ALL
+                    SELECT ii.id FROM inventory_items ii
+                    JOIN descendants d ON ii.parent_inventory_item_id = d.id
+                )
+                DELETE FROM inventory_items WHERE id IN (SELECT id FROM descendants))");
+            deleteChildren.bindValue(":id", id);
+            if (!deleteChildren.exec()) {
+                qWarning() << "removeInventoryItem failed: could not delete children";
+                return false;
+            }
+            break;
+        }
+        case Enums::RemovalMode::MoveToContainer: {
+            if (destinationContainerId <= 0) {
+                qWarning() << "removeInventoryItem failed: destination container required for MoveToContainer mode";
+                return false;
+            }
+            if (!isContainer(destinationContainerId)) {
+                qWarning() << "removeInventoryItem failed: destination" << destinationContainerId << "is not a container";
+                return false;
+            }
+            if (wouldCreateCycle(id, destinationContainerId)) {
+                qWarning() << "removeInventoryItem failed: destination is inside the container being removed";
+                return false;
+            }
+
+            double contentsWeight = interiorWeight(id);
+            if (wouldExceedCapacity(destinationContainerId, contentsWeight)) {
+                qWarning() << "removeInventoryItem failed: contents would exceed destination container capacity";
+                return false;
+            }
+
+            QSqlQuery reparent(m_db);
+            reparent.prepare("UPDATE inventory_items SET parent_inventory_item_id = :newParent WHERE parent_inventory_item_id = :id");
+            reparent.bindValue(":newParent", destinationContainerId);
+            reparent.bindValue(":id", id);
+            if (!reparent.exec()) {
+                qWarning() << "removeInventoryItem failed: could not move children to destination";
+                return false;
+            }
+            break;
+        }
+        }
+    }
+
     QSqlQuery query(m_db);
-    query.prepare("DELETE FROM inventory_items WHERE id=:id");
+    query.prepare("DELETE FROM inventory_items WHERE id = :id");
     query.bindValue(":id", id);
     if (!query.exec()) {
         qWarning() << "removeInventoryItem failed: " << query.lastError().text();

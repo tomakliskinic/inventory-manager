@@ -78,6 +78,13 @@ enum class ArmorCategory {
 };
 Q_ENUM_NS(ArmorCategory)
 
+enum class RemovalMode {
+    SpillToParent = 0,
+    DeleteAll = 1,
+    MoveToContainer = 2
+};
+Q_ENUM_NS(RemovalMode)
+
 static inline QString toString(CreatureSize v) {
     switch (v) {
         case Enums::CreatureSize::Tiny: return QStringLiteral("Tiny");

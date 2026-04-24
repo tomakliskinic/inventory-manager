@@ -6,6 +6,8 @@
 #include <QFileInfo>
 #include <QDir>
 
+#include "enums.h"
+
 class DatabaseManager : public QObject
 {
     Q_OBJECT
@@ -32,7 +34,7 @@ public:
 
     int addInventoryItem(int characterId, int itemId, int quantity = 1, int parentInventoryItemId = -1);
     bool updateInventoryItem(int id, const QVariantMap &data);
-    bool removeInventoryItem(int id);
+    bool removeInventoryItem(int id, Enums::RemovalMode mode = Enums::RemovalMode::SpillToParent, int destinationContainerId = -1);
     QVariantList getInventoryTree(int characterId);
     QVariantList getContainerContents(int inventoryItemId);
 
