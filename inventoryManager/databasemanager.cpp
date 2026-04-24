@@ -84,7 +84,7 @@ int DatabaseManager::createCharacter(const QVariantMap &data)
     query.bindValue(":notes", data.value("notes"));
 
     if (!query.exec()) {
-        qWarning() << "CreateCharacter failed: " << query.lastError().text();
+        qWarning() << "createCharacter failed: " << query.lastError().text();
         return -1;
     }
 
@@ -204,6 +204,13 @@ bool DatabaseManager::updateCoins(int characterId, const QVariantMap &coins)
 
     if (assignments.isEmpty())
         return false;
+
+    for (const QString &field : allowed) {
+        if (coins.contains(field) && coins.value(field).toInt() < 0) {
+            qWarning() << "updateCoins failed:" << field << "cannot be negative";
+            return false;
+        }
+    }
 
     QSqlQuery query(m_db);
     query.prepare("UPDATE character_coins SET " + assignments.join(", ") + " WHERE character_id = :id");
@@ -560,7 +567,7 @@ QVariantList DatabaseManager::getInventoryTree(int characterId)
     SELECT * FROM tree ORDER BY depth, item_name)");
     query.bindValue(":characterId", characterId);
     if (!query.exec()) {
-        qWarning() << "getInventoryTree failed " << query.lastError().text();
+        qWarning() << "getInventoryTree failed: " << query.lastError().text();
         return list;
     }
     while (query.next()) {
