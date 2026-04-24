@@ -423,6 +423,12 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
 
 bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int destinationContainerId)
 {
+    if (!m_db.transaction()) {
+        qWarning() << "removeInventoryItem failed: could not begin transaction:" << m_db.lastError().text();
+        return false;
+    }
+
+    auto body = [&]() -> bool {
     QSqlQuery childCheck(m_db);
     childCheck.prepare("SELECT COUNT(*) FROM inventory_items WHERE parent_inventory_item_id = :id");
     childCheck.bindValue(":id", id);
@@ -522,6 +528,18 @@ bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int d
         return false;
     }
     return query.numRowsAffected() > 0;
+    };
+
+    if (!body()) {
+        m_db.rollback();
+        return false;
+    }
+    if (!m_db.commit()) {
+        qWarning() << "removeInventoryItem failed: commit failed:" << m_db.lastError().text();
+        m_db.rollback();
+        return false;
+    }
+    return true;
 }
 
 QVariantList DatabaseManager::getInventoryTree(int characterId)
