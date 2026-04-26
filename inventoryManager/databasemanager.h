@@ -18,30 +18,32 @@ public:
     bool initialize(const QString &dbPath);
     bool isInitialized() const;
 
-    int createCharacter(const QVariantMap &data);
-    bool updateCharacter(int id, const QVariantMap &data);
-    bool deleteCharacter(int id);
-    QVariantMap getCharacter(int id);
-    QVariantList getAllCharacters();
+    Q_INVOKABLE QStringList creatureSizeNames() const;
 
-    QVariantMap getCoins(int characterId);
-    bool updateCoins(int characterId, const QVariantMap &coins);
+    Q_INVOKABLE int createCharacter(const QVariantMap &data);
+    Q_INVOKABLE bool updateCharacter(int id, const QVariantMap &data);
+    Q_INVOKABLE bool deleteCharacter(int id);
+    Q_INVOKABLE QVariantMap getCharacter(int id);
+    Q_INVOKABLE QVariantList getAllCharacters();
 
-    QVariantList getItemDefinitions (int itemType = -1);
-    QVariantMap getItemDefinition(int id);
+    Q_INVOKABLE QVariantMap getCoins(int characterId);
+    Q_INVOKABLE bool updateCoins(int characterId, const QVariantMap &coins);
+
+    Q_INVOKABLE QVariantList getItemDefinitions (int itemType = -1);
+    Q_INVOKABLE QVariantMap getItemDefinition(int id);
     QVariantMap getWeaponDetails(int itemId);
     QVariantMap getArmorDetails(int itemId);
 
-    int addInventoryItem(int characterId, int itemId, int quantity = 1, int parentInventoryItemId = -1);
-    bool updateInventoryItem(int id, const QVariantMap &data);
-    bool removeInventoryItem(int id, Enums::RemovalMode mode = Enums::RemovalMode::SpillToParent, int destinationContainerId = -1);
-    QVariantList getInventoryTree(int characterId);
-    QVariantList getContainerContents(int inventoryItemId);
+    Q_INVOKABLE int addInventoryItem(int characterId, int itemId, int quantity = 1, int parentInventoryItemId = -1);
+    Q_INVOKABLE bool updateInventoryItem(int id, const QVariantMap &data);
+    Q_INVOKABLE bool removeInventoryItem(int id, Enums::RemovalMode mode = Enums::RemovalMode::SpillToParent, int destinationContainerId = -1);
+    Q_INVOKABLE QVariantList getInventoryTree(int characterId);
+    Q_INVOKABLE QVariantList getContainerContents(int inventoryItemId);
 
-    double getTotalWeight(int characterId);
-    double getCoinWeight(int characterId);
-    double getCarryingCapacity(int characterId);
-    double getContainerUsedWeight(int inventoryItemId);
+    Q_INVOKABLE double getTotalWeight(int characterId);
+    Q_INVOKABLE double getCoinWeight(int characterId);
+    Q_INVOKABLE double getCarryingCapacity(int characterId);
+    Q_INVOKABLE double getContainerUsedWeight(int inventoryItemId);
 
 private:
     bool executeSql(const QString &sql);

@@ -4,7 +4,7 @@ project(inventoryManager VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick Sql)
+find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Sql)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -45,7 +45,7 @@ set_target_properties(appinventoryManager PROPERTIES
 )
 
 target_link_libraries(appinventoryManager
-    PRIVATE Qt6::Quick Qt6::Sql
+    PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Sql
 )
 
 install(TARGETS appinventoryManager

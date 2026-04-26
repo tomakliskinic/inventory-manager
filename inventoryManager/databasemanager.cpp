@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QMetaEnum>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {}
 
@@ -63,6 +64,15 @@ bool DatabaseManager::initialize(const QString &dbPath)
 bool DatabaseManager::isInitialized() const
 {
     return m_initialized;
+}
+
+QStringList DatabaseManager::creatureSizeNames() const
+{
+    QStringList names;
+    QMetaEnum me = QMetaEnum::fromType<Enums::CreatureSize>();
+    for (int i = 0; i < me.keyCount(); ++i)
+        names << QString::fromUtf8(me.key(i));
+    return names;
 }
 
 int DatabaseManager::createCharacter(const QVariantMap &data)
@@ -307,14 +317,16 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
         return -1;
     }
 
-    QSqlQuery weightQuery(m_db);
-    weightQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb) FROM item_definitions WHERE id = :id");
-    weightQuery.bindValue(":id", itemId);
-    if (!weightQuery.exec() || !weightQuery.next()) {
+    QSqlQuery defQuery(m_db);
+    defQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb), is_container, item_type FROM item_definitions WHERE id = :id");
+    defQuery.bindValue(":id", itemId);
+    if (!defQuery.exec() || !defQuery.next()) {
         qWarning() << "addInventoryItem failed: item definition" << itemId << "not found";
         return -1;
     }
-    double itemWeight = weightQuery.value(0).toDouble();
+    double itemWeight = defQuery.value(0).toDouble();
+    bool isContainerItem = defQuery.value(1).toBool();
+    int itemType = defQuery.value(2).toInt();
 
     if (parentId > 0) {
         if (!isContainer(parentId)) {
@@ -328,6 +340,37 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
         if (wouldExceedCapacity(parentId, itemWeight * quantity)) {
             qWarning() << "addInventoryItem failed: container chain would exceed weight capacity";
             return -1;
+        }
+    }
+
+    bool stackable = !isContainerItem
+        && (itemType == static_cast<int>(Enums::ItemType::Gear)
+            || itemType == static_cast<int>(Enums::ItemType::Tool));
+
+    if (stackable) {
+        QSqlQuery findExisting(m_db);
+        findExisting.prepare(R"(SELECT id FROM inventory_items
+            WHERE character_id = :characterId
+              AND item_id = :itemId
+              AND COALESCE(parent_inventory_item_id, 0) = :parentIdOrZero
+              AND custom_name IS NULL
+              AND notes IS NULL
+              AND is_equipped = 0
+            LIMIT 1)");
+        findExisting.bindValue(":characterId", characterId);
+        findExisting.bindValue(":itemId", itemId);
+        findExisting.bindValue(":parentIdOrZero", parentId > 0 ? parentId : 0);
+        if (findExisting.exec() && findExisting.next()) {
+            int existingId = findExisting.value(0).toInt();
+            QSqlQuery updateQty(m_db);
+            updateQty.prepare("UPDATE inventory_items SET quantity = quantity + :qty WHERE id = :id");
+            updateQty.bindValue(":qty", quantity);
+            updateQty.bindValue(":id", existingId);
+            if (!updateQty.exec()) {
+                qWarning() << "addInventoryItem failed: could not stack with existing:" << updateQty.lastError().text();
+                return -1;
+            }
+            return existingId;
         }
     }
 
