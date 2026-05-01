@@ -143,7 +143,7 @@ ApplicationWindow {
                 totalWeight = DB.getTotalWeight(character.id)
                 coinWeight = DB.getCoinWeight(character.id)
                 carryingCapacity = DB.getCarryingCapacity(character.id)
-                inventoryItems = DB.getInventoryTree(character.id).filter(i => i.depth === 0)
+                inventoryItems = DB.getInventoryTree(character.id)
             }
 
             Component.onCompleted: Qt.callLater(refresh)
@@ -349,8 +349,13 @@ ApplicationWindow {
                                 model: detailPage.inventoryItems
                                 delegate: RowLayout {
                                     Layout.fillWidth: true
+
+                                    Item {
+                                        Layout.preferredWidth: modelData.depth * 20
+                                        visible: modelData.depth > 0
+                                    }
                                     Label {
-                                        text: modelData.item_name
+                                        text: (modelData.is_container ? "📦 " : "") + modelData.item_name
                                         Layout.fillWidth: true
                                         elide: Text.ElideRight
                                     }
@@ -617,6 +622,7 @@ ApplicationWindow {
         id: addItemDialog
         property int characterId: -1
         property var itemDefs: []
+        property var containerOptions: []
 
         title: qsTr("Add Item")
         modal: true
@@ -646,19 +652,43 @@ ApplicationWindow {
                 from: 1; to: 999; value: 1
                 editable: true
             }
+
+            Label { text: qsTr("Place in") }
+            ComboBox {
+                id: parentCombo
+                Layout.fillWidth: true
+                model: addItemDialog.containerOptions
+                textRole: "name"
+                valueRole: "id"
+            }
         }
 
         function openFor(charId) {
             characterId = charId
             itemDefs = DB.getItemDefinitions()
+            const allItems = DB.getInventoryTree(charId)
+            const containers = allItems.filter(i => i.is_container)
+            const opts = [{ id: -1, name: qsTr("Top level") }]
+            for (const c of containers) {
+                const path = []
+                let cur = c
+                while (cur) {
+                    path.unshift(cur.custom_name || cur.item_name)
+                    const parentId = cur.parent_inventory_item_id
+                    cur = parentId ? allItems.find(i => i.id === parentId) : null
+                }
+                opts.push({ id: c.id, name: path.join(" › ") })
+            }
+            containerOptions = opts
             itemCombo.currentIndex = 0
             qtyField.value = 1
+            parentCombo.currentIndex = 0
             open()
         }
 
         onAccepted: {
             if (characterId > 0 && itemCombo.currentValue) {
-                DB.addInventoryItem(characterId, itemCombo.currentValue, qtyField.value)
+                DB.addInventoryItem(characterId, itemCombo.currentValue, qtyField.value, parentCombo.currentValue)
                 refreshCurrentDetail()
             }
             characterId = -1

@@ -601,13 +601,22 @@ QVariantList DatabaseManager::getInventoryTree(int characterId)
     QVariantList list;
     QSqlQuery query(m_db);
 
-    query.prepare(R"(WITH RECURSIVE tree AS (SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes,
-    idef.name AS item_name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight, 0 AS depth FROM inventory_items ii
-    JOIN item_definitions idef ON ii.item_id = idef.id WHERE ii.character_id = :characterId AND ii.parent_inventory_item_id IS NULL UNION ALL
-    SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes,
-    idef.name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight, t.depth +1
-    FROM inventory_items ii JOIN item_definitions idef ON ii.item_id = idef.id JOIN tree t ON ii.parent_inventory_item_id = t.id)
-    SELECT * FROM tree ORDER BY depth, item_name)");
+    query.prepare(R"(WITH RECURSIVE tree AS (
+        SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes,
+            idef.name AS item_name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight,
+            0 AS depth, printf('%020d', ii.id) AS path
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.character_id = :characterId AND ii.parent_inventory_item_id IS NULL
+        UNION ALL
+        SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes,
+            idef.name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight,
+            t.depth + 1, t.path || '/' || printf('%020d', ii.id)
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        JOIN tree t ON ii.parent_inventory_item_id = t.id
+    )
+    SELECT * FROM tree ORDER BY path)");
     query.bindValue(":characterId", characterId);
     if (!query.exec()) {
         qWarning() << "getInventoryTree failed: " << query.lastError().text();
