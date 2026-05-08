@@ -42,6 +42,9 @@ ApplicationWindow {
                  && !deleteConfirm.opened
                  && !coinsDialog.opened
                  && !addItemDialog.opened
+                 && !itemEditDialog.opened
+                 && !itemRemoveSimpleConfirm.opened
+                 && !itemRemoveContainerDialog.opened
         onActivated: stack.pop()
     }
 
@@ -355,7 +358,9 @@ ApplicationWindow {
                                         visible: modelData.depth > 0
                                     }
                                     Label {
-                                        text: (modelData.is_container ? "📦 " : "") + modelData.item_name
+                                        text: (modelData.is_container ? "📦 " : "")
+                                              + (modelData.custom_name || modelData.item_name)
+                                              + (modelData.is_equipped ? " ✓" : "")
                                         Layout.fillWidth: true
                                         elide: Text.ElideRight
                                     }
@@ -370,6 +375,37 @@ ApplicationWindow {
                                         opacity: 0.7
                                         Layout.preferredWidth: 60
                                         horizontalAlignment: Text.AlignRight
+                                    }
+                                    ToolButton {
+                                        text: "⋮"
+                                        font.pixelSize: 16
+                                        onClicked: {
+                                            inventoryRowMenu.item = modelData
+                                            inventoryRowMenu.popup()
+                                        }
+                                    }
+                                }
+                            }
+
+                            Menu {
+                                id: inventoryRowMenu
+                                property var item: null
+
+                                MenuItem {
+                                    text: qsTr("Edit")
+                                    onTriggered: itemEditDialog.openFor(inventoryRowMenu.item)
+                                }
+                                MenuItem {
+                                    text: qsTr("Remove")
+                                    onTriggered: {
+                                        const it = inventoryRowMenu.item
+                                        if (it.is_container && DB.getContainerContents(it.id).length > 0) {
+                                            itemRemoveContainerDialog.item = it
+                                            itemRemoveContainerDialog.open()
+                                        } else {
+                                            itemRemoveSimpleConfirm.item = it
+                                            itemRemoveSimpleConfirm.open()
+                                        }
                                     }
                                 }
                             }
@@ -694,6 +730,187 @@ ApplicationWindow {
             characterId = -1
         }
         onRejected: characterId = -1
+    }
+
+    Dialog {
+        id: itemEditDialog
+        property int itemId: -1
+
+        title: qsTr("Edit Item")
+        modal: true
+        anchors.centerIn: parent
+        width: 480
+        height: Math.min(window.height - 60, 460)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        ScrollView {
+            anchors.fill: parent
+            contentWidth: availableWidth
+            clip: true
+
+            GridLayout {
+                width: itemEditDialog.availableWidth - 20
+                columns: 2
+                columnSpacing: 12
+                rowSpacing: 8
+
+                Label { text: qsTr("Quantity") }
+                SpinBox {
+                    id: itemQtyField
+                    Layout.fillWidth: true
+                    from: 1; to: 999
+                    editable: true
+                }
+
+                Label { text: qsTr("Custom name") }
+                TextField {
+                    id: itemNameField
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("(optional)")
+                }
+
+                Label { text: qsTr("Equipped") }
+                CheckBox {
+                    id: itemEquippedField
+                }
+
+                Label {
+                    text: qsTr("Notes")
+                    Layout.alignment: Qt.AlignTop
+                }
+                ScrollView {
+                    id: itemNotesScroll
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 80
+                    clip: true
+
+                    function ensureCursorVisible(r) {
+                        const flick = contentItem
+                        const margin = 6
+                        const top = r.y - margin
+                        const bottom = r.y + r.height + margin
+                        if (top < flick.contentY)
+                            flick.contentY = Math.max(0, top)
+                        else if (bottom > flick.contentY + flick.height)
+                            flick.contentY = Math.min(
+                                bottom - flick.height,
+                                Math.max(0, flick.contentHeight - flick.height))
+                    }
+
+                    TextArea {
+                        id: itemNotesField
+                        wrapMode: TextArea.Wrap
+                        onCursorRectangleChanged: itemNotesScroll.ensureCursorVisible(cursorRectangle)
+                    }
+                }
+            }
+        }
+
+        function openFor(item) {
+            itemId = item.id
+            itemQtyField.value = item.quantity || 1
+            itemNameField.text = item.custom_name || ""
+            itemNotesField.text = item.notes || ""
+            itemEquippedField.checked = !!item.is_equipped
+            open()
+        }
+
+        onAccepted: {
+            if (itemId > 0) {
+                DB.updateInventoryItem(itemId, {
+                    "quantity": itemQtyField.value,
+                    "custom_name": itemNameField.text.trim() || null,
+                    "notes": itemNotesField.text.trim() || null,
+                    "is_equipped": itemEquippedField.checked ? 1 : 0
+                })
+                refreshCurrentDetail()
+            }
+            itemId = -1
+        }
+        onRejected: itemId = -1
+    }
+
+    Dialog {
+        id: itemRemoveSimpleConfirm
+        property var item: null
+
+        title: qsTr("Remove Item?")
+        modal: true
+        anchors.centerIn: parent
+        width: 360
+        standardButtons: Dialog.Yes | Dialog.No
+
+        Label {
+            anchors.fill: parent
+            text: itemRemoveSimpleConfirm.item
+                ? qsTr("Remove \"%1\"?").arg(itemRemoveSimpleConfirm.item.custom_name
+                                              || itemRemoveSimpleConfirm.item.item_name)
+                : ""
+            wrapMode: Text.Wrap
+        }
+
+        onAccepted: {
+            if (item) {
+                DB.removeInventoryItem(item.id)
+                refreshCurrentDetail()
+            }
+            item = null
+        }
+        onRejected: item = null
+    }
+
+    Dialog {
+        id: itemRemoveContainerDialog
+        property var item: null
+
+        title: qsTr("Remove Container?")
+        modal: true
+        anchors.centerIn: parent
+        width: 420
+
+        function applyMode(mode) {
+            if (item) {
+                DB.removeInventoryItem(item.id, mode)
+                refreshCurrentDetail()
+            }
+            item = null
+            close()
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+
+            Label {
+                text: itemRemoveContainerDialog.item
+                    ? qsTr("\"%1\" contains items. What should happen to them?")
+                        .arg(itemRemoveContainerDialog.item.custom_name
+                             || itemRemoveContainerDialog.item.item_name)
+                    : ""
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            Button {
+                text: qsTr("Spill contents out")
+                Layout.fillWidth: true
+                onClicked: itemRemoveContainerDialog.applyMode(Enums.RemovalMode.SpillToParent)
+            }
+            Button {
+                text: qsTr("Delete with all contents")
+                Layout.fillWidth: true
+                onClicked: itemRemoveContainerDialog.applyMode(Enums.RemovalMode.DeleteAll)
+            }
+            Button {
+                text: qsTr("Cancel")
+                Layout.fillWidth: true
+                flat: true
+                onClicked: {
+                    itemRemoveContainerDialog.item = null
+                    itemRemoveContainerDialog.close()
+                }
+            }
+        }
     }
 
     InputPanel {
