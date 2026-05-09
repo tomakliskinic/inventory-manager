@@ -385,19 +385,39 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
         }
     }
 
+    const int rowsToInsert = (!stackable && quantity > 1) ? quantity : 1;
+    const int qtyPerRow = (!stackable && quantity > 1) ? 1 : quantity;
+    const bool wrap = rowsToInsert > 1;
+
+    if (wrap && !m_db.transaction()) {
+        qWarning() << "addInventoryItem failed: could not begin transaction:" << m_db.lastError().text();
+        return -1;
+    }
+
     QSqlQuery query(m_db);
     query.prepare(R"(INSERT INTO inventory_items (character_id, item_id, quantity, parent_inventory_item_id) VALUES (:characterId, :itemId, :quantity, :parentId))");
     query.bindValue(":characterId", characterId);
     query.bindValue(":itemId", itemId);
-    query.bindValue(":quantity", quantity);
+    query.bindValue(":quantity", qtyPerRow);
     query.bindValue(":parentId", parentId > 0 ? parentId : QVariant());
-    if (!query.exec()) {
-        qWarning() << "addInventoryItem failed: " << query.lastError().text();
+
+    int lastId = -1;
+    for (int i = 0; i < rowsToInsert; ++i) {
+        if (!query.exec()) {
+            qWarning() << "addInventoryItem failed: " << query.lastError().text();
+            if (wrap) m_db.rollback();
+            return -1;
+        }
+        lastId = query.lastInsertId().toInt();
+    }
+
+    if (wrap && !m_db.commit()) {
+        qWarning() << "addInventoryItem failed: commit failed:" << m_db.lastError().text();
+        m_db.rollback();
         return -1;
     }
 
-    return query.lastInsertId().toInt();
-
+    return lastId;
 }
 
 bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
