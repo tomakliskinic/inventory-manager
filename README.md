@@ -34,7 +34,9 @@ This application will allow players to create and manage characters and their in
 
 ## Project Status
 
-This project is in early development. The feature list above reflects the full planned scope — not all features are implemented yet.
+Active development. The core inventory management loop is functional: character CRUD, hierarchical inventory with nested containers, item add/edit/move/remove with stacking for fungibles, coin tracking, and live weight/capacity calculations against D&D 5E carry rules. Items are picked from the seeded SRD catalog.
+
+Still planned: custom item definitions, sort/filter/search, JSON import/export, and Android packaging.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
