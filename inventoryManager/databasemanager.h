@@ -18,6 +18,8 @@ public:
     bool initialize(const QString &dbPath);
     bool isInitialized() const;
 
+    Q_INVOKABLE QString lastError() const;
+
     Q_INVOKABLE QStringList creatureSizeNames() const;
 
     Q_INVOKABLE int createCharacter(const QVariantMap &data);
@@ -46,6 +48,8 @@ public:
     Q_INVOKABLE double getContainerUsedWeight(int inventoryItemId);
 
 private:
+    void reportError(const QString &message);
+
     bool executeSql(const QString &sql);
     bool executeSqlFile(const QString &resourcePath);
     bool isNewDatabase();
@@ -59,6 +63,7 @@ private:
 
     QSqlDatabase m_db;
     bool m_initialized = false;
+    QString m_lastError;
 };
 
 #endif // DATABASEMANAGER_H

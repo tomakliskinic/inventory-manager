@@ -66,6 +66,17 @@ bool DatabaseManager::isInitialized() const
     return m_initialized;
 }
 
+QString DatabaseManager::lastError() const
+{
+    return m_lastError;
+}
+
+void DatabaseManager::reportError(const QString &message)
+{
+    m_lastError = message;
+    qWarning().noquote() << message;
+}
+
 QStringList DatabaseManager::creatureSizeNames() const
 {
     QStringList names;
@@ -313,7 +324,7 @@ QVariantMap DatabaseManager::getArmorDetails(int itemId)
 int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity, int parentId)
 {
     if (quantity < 1) {
-        qWarning() << "addInventoryItem failed: quantity must be at least 1";
+        reportError(QStringLiteral("addInventoryItem failed: quantity must be at least 1"));
         return -1;
     }
 
@@ -321,7 +332,7 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
     defQuery.prepare("SELECT COALESCE(fixed_weight, weight_lb), is_container, item_type FROM item_definitions WHERE id = :id");
     defQuery.bindValue(":id", itemId);
     if (!defQuery.exec() || !defQuery.next()) {
-        qWarning() << "addInventoryItem failed: item definition" << itemId << "not found";
+        reportError(QStringLiteral("addInventoryItem failed: item definition %1 not found").arg(itemId));
         return -1;
     }
     double itemWeight = defQuery.value(0).toDouble();
@@ -330,15 +341,15 @@ int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity,
 
     if (parentId > 0) {
         if (!isContainer(parentId)) {
-            qWarning() << "addInventoryItem failed: parent" << parentId << "is not a container";
+            reportError(QStringLiteral("addInventoryItem failed: parent %1 is not a container").arg(parentId));
             return -1;
         }
         if (getItemOwner(parentId) != characterId) {
-            qWarning() << "addInventoryItem failed: parent" << parentId << "belongs to a different character";
+            reportError(QStringLiteral("addInventoryItem failed: parent %1 belongs to a different character").arg(parentId));
             return -1;
         }
         if (wouldExceedCapacity(parentId, itemWeight * quantity)) {
-            qWarning() << "addInventoryItem failed: container chain would exceed weight capacity";
+            reportError(QStringLiteral("Adding this item would exceed the container's weight capacity."));
             return -1;
         }
     }
@@ -422,15 +433,15 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
         if (effectiveParent > 0) {
             if (parentChanging) {
                 if (!isContainer(effectiveParent)) {
-                    qWarning() << "updateInventoryItem failed: parent" << effectiveParent << "is not a container";
+                    reportError(QStringLiteral("updateInventoryItem failed: parent %1 is not a container").arg(effectiveParent));
                     return false;
                 }
                 if (getItemOwner(effectiveParent) != getItemOwner(id)) {
-                    qWarning() << "updateInventoryItem failed: parent" << effectiveParent << "belongs to a different character";
+                    reportError(QStringLiteral("updateInventoryItem failed: parent %1 belongs to a different character").arg(effectiveParent));
                     return false;
                 }
                 if (wouldCreateCycle(id, effectiveParent)) {
-                    qWarning() << "updateInventoryItem failed: placing item" << id << "inside" << effectiveParent << "would create a cycle";
+                    reportError(QStringLiteral("Cannot move container into one of its own contents."));
                     return false;
                 }
             }
@@ -448,7 +459,7 @@ bool DatabaseManager::updateInventoryItem(int id, const QVariantMap &data)
             double additional = lookup.value(0).toDouble() * effectiveQty + interiorWeight(id);
 
             if (wouldExceedCapacity(effectiveParent, additional, id)) {
-                qWarning() << "updateInventoryItem failed: container chain would exceed weight capacity";
+                reportError(QStringLiteral("This change would exceed the container's weight capacity."));
                 return false;
             }
         }
@@ -505,7 +516,7 @@ bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int d
             if (parentId > 0) {
                 double contentsWeight = interiorWeight(id);
                 if (wouldExceedCapacity(parentId, contentsWeight, id)) {
-                    qWarning() << "removeInventoryItem failed: spilling contents would exceed parent container capacity";
+                    reportError(QStringLiteral("Spilling contents would exceed the parent container's weight capacity."));
                     return false;
                 }
             }
@@ -543,21 +554,21 @@ bool DatabaseManager::removeInventoryItem(int id, Enums::RemovalMode mode, int d
                 return false;
             }
             if (!isContainer(destinationContainerId)) {
-                qWarning() << "removeInventoryItem failed: destination" << destinationContainerId << "is not a container";
+                reportError(QStringLiteral("Destination %1 is not a container.").arg(destinationContainerId));
                 return false;
             }
             if (getItemOwner(destinationContainerId) != getItemOwner(id)) {
-                qWarning() << "removeInventoryItem failed: destination" << destinationContainerId << "belongs to a different character";
+                reportError(QStringLiteral("Destination belongs to a different character."));
                 return false;
             }
             if (wouldCreateCycle(id, destinationContainerId)) {
-                qWarning() << "removeInventoryItem failed: destination is inside the container being removed";
+                reportError(QStringLiteral("Destination is inside the container being removed."));
                 return false;
             }
 
             double contentsWeight = interiorWeight(id);
             if (wouldExceedCapacity(destinationContainerId, contentsWeight)) {
-                qWarning() << "removeInventoryItem failed: contents would exceed destination container capacity";
+                reportError(QStringLiteral("Contents would exceed the destination container's weight capacity."));
                 return false;
             }
 
