@@ -411,8 +411,7 @@ ApplicationWindow {
                                     onTriggered: {
                                         const it = inventoryRowMenu.item
                                         if (it.is_container && DB.getContainerContents(it.id).length > 0) {
-                                            itemRemoveContainerDialog.item = it
-                                            itemRemoveContainerDialog.open()
+                                            itemRemoveContainerDialog.openFor(it, detailPage.character.id)
                                         } else {
                                             itemRemoveSimpleConfirm.item = it
                                             itemRemoveSimpleConfirm.open()
@@ -879,15 +878,49 @@ ApplicationWindow {
     Dialog {
         id: itemRemoveContainerDialog
         property var item: null
+        property var destinationOptions: []
 
         title: qsTr("Remove Container?")
         modal: true
         anchors.centerIn: parent
-        width: 420
+        width: 460
 
-        function applyMode(mode) {
+        function openFor(itm, charId) {
+            item = itm
+
+            const allItems = DB.getInventoryTree(charId)
+            const excluded = new Set([itm.id])
+            let changed = true
+            while (changed) {
+                changed = false
+                for (const i of allItems) {
+                    if (excluded.has(i.parent_inventory_item_id) && !excluded.has(i.id)) {
+                        excluded.add(i.id)
+                        changed = true
+                    }
+                }
+            }
+
+            const containers = allItems.filter(i => i.is_container && !excluded.has(i.id))
+            const opts = []
+            for (const c of containers) {
+                const path = []
+                let cur = c
+                while (cur) {
+                    path.unshift(cur.custom_name || cur.item_name)
+                    const parentId = cur.parent_inventory_item_id
+                    cur = parentId ? allItems.find(i => i.id === parentId) : null
+                }
+                opts.push({ id: c.id, name: path.join(" › ") })
+            }
+            destinationOptions = opts
+            moveContentsCombo.currentIndex = 0
+            open()
+        }
+
+        function applyMode(mode, destId) {
             if (item) {
-                const ok = DB.removeInventoryItem(item.id, mode)
+                const ok = DB.removeInventoryItem(item.id, mode, destId !== undefined ? destId : -1)
                 if (!ok)
                     notifyError(DB.lastError() || qsTr("Couldn't remove item."))
                 refreshCurrentDetail()
@@ -920,6 +953,27 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 onClicked: itemRemoveContainerDialog.applyMode(Enums.RemovalMode.DeleteAll)
             }
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: itemRemoveContainerDialog.destinationOptions.length > 0
+
+                ComboBox {
+                    id: moveContentsCombo
+                    Layout.fillWidth: true
+                    model: itemRemoveContainerDialog.destinationOptions
+                    textRole: "name"
+                    valueRole: "id"
+                }
+                Button {
+                    text: qsTr("Move to")
+                    enabled: moveContentsCombo.currentValue !== undefined
+                             && moveContentsCombo.currentValue > 0
+                    onClicked: itemRemoveContainerDialog.applyMode(
+                        Enums.RemovalMode.MoveToContainer, moveContentsCombo.currentValue)
+                }
+            }
+
             Button {
                 text: qsTr("Cancel")
                 Layout.fillWidth: true
