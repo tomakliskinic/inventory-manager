@@ -148,7 +148,8 @@ ApplicationWindow {
 
             property string searchText: ""
             property int filterType: -1
-            property int sortMode: 0
+            property int sortField: 0
+            property bool sortAscending: true
 
             readonly property bool isFiltering: searchText !== "" || filterType >= 0
 
@@ -179,15 +180,22 @@ ApplicationWindow {
                     result = inventoryItems.filter(i => visible.has(i.id))
                 }
 
-                if (sortMode > 0) {
+                if (sortField > 0) {
                     let cmp
-                    if (sortMode === 1)
+                    if (sortField === 1)
                         cmp = (a, b) =>
                             (a.custom_name || a.item_name).localeCompare(b.custom_name || b.item_name)
-                    else if (sortMode === 2)
-                        cmp = (a, b) => (b.weight_lb * b.quantity) - (a.weight_lb * a.quantity)
+                    else if (sortField === 2)
+                        cmp = (a, b) => (a.weight_lb * a.quantity) - (b.weight_lb * b.quantity)
+                    else if (sortField === 3)
+                        cmp = (a, b) => a.quantity - b.quantity
                     else
-                        cmp = (a, b) => b.quantity - a.quantity
+                        cmp = (a, b) => (a.created_at || "").localeCompare(b.created_at || "")
+
+                    if (!sortAscending) {
+                        const inner = cmp
+                        cmp = (a, b) => -inner(a, b)
+                    }
 
                     const byParent = {}
                     for (const item of result) {
@@ -443,10 +451,19 @@ ApplicationWindow {
                                     model: [
                                         { id: 0, name: qsTr("Default order") },
                                         { id: 1, name: qsTr("Name") },
-                                        { id: 2, name: qsTr("Heaviest first") },
-                                        { id: 3, name: qsTr("Most quantity") }
+                                        { id: 2, name: qsTr("Weight") },
+                                        { id: 3, name: qsTr("Quantity") },
+                                        { id: 4, name: qsTr("Date added") }
                                     ]
-                                    onActivated: detailPage.sortMode = currentValue
+                                    onActivated: {
+                                        detailPage.sortField = currentValue
+                                        detailPage.sortAscending = currentValue === 1
+                                    }
+                                }
+                                ToolButton {
+                                    text: detailPage.sortAscending ? "↑" : "↓"
+                                    enabled: detailPage.sortField > 0
+                                    onClicked: detailPage.sortAscending = !detailPage.sortAscending
                                 }
                             }
 
