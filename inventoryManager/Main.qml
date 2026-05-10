@@ -148,19 +148,67 @@ ApplicationWindow {
 
             property string searchText: ""
             property int filterType: -1
+            property int sortMode: 0
 
             readonly property bool isFiltering: searchText !== "" || filterType >= 0
+
             readonly property var filteredItems: {
                 let result = inventoryItems
-                if (searchText) {
-                    const needle = searchText
-                    result = result.filter(i =>
-                        (i.item_name || "").toLowerCase().includes(needle)
-                        || (i.custom_name || "").toLowerCase().includes(needle)
-                        || (i.notes || "").toLowerCase().includes(needle))
+
+                if (isFiltering) {
+                    const matches = new Set()
+                    for (const item of inventoryItems) {
+                        const matchesSearch = !searchText
+                            || (item.item_name || "").toLowerCase().includes(searchText)
+                            || (item.custom_name || "").toLowerCase().includes(searchText)
+                            || (item.notes || "").toLowerCase().includes(searchText)
+                        const matchesType = filterType < 0 || item.item_type === filterType
+                        if (matchesSearch && matchesType)
+                            matches.add(item.id)
+                    }
+                    const visible = new Set(matches)
+                    for (const id of matches) {
+                        const seed = inventoryItems.find(i => i.id === id)
+                        let parentId = seed ? seed.parent_inventory_item_id : null
+                        while (parentId && !visible.has(parentId)) {
+                            visible.add(parentId)
+                            const parent = inventoryItems.find(i => i.id === parentId)
+                            parentId = parent ? parent.parent_inventory_item_id : null
+                        }
+                    }
+                    result = inventoryItems.filter(i => visible.has(i.id))
                 }
-                if (filterType >= 0)
-                    result = result.filter(i => i.item_type === filterType)
+
+                if (sortMode > 0) {
+                    let cmp
+                    if (sortMode === 1)
+                        cmp = (a, b) =>
+                            (a.custom_name || a.item_name).localeCompare(b.custom_name || b.item_name)
+                    else if (sortMode === 2)
+                        cmp = (a, b) => (b.weight_lb * b.quantity) - (a.weight_lb * a.quantity)
+                    else
+                        cmp = (a, b) => b.quantity - a.quantity
+
+                    const byParent = {}
+                    for (const item of result) {
+                        const key = item.parent_inventory_item_id || 0
+                        if (!byParent[key]) byParent[key] = []
+                        byParent[key].push(item)
+                    }
+                    for (const key in byParent)
+                        byParent[key].sort(cmp)
+                    const ordered = []
+                    const walk = (parentId) => {
+                        const children = byParent[parentId] || []
+                        for (const child of children) {
+                            ordered.push(child)
+                            walk(child.id)
+                        }
+                    }
+                    walk(0)
+                    result = ordered
+                }
+
                 return result
             }
 
@@ -375,7 +423,7 @@ ApplicationWindow {
                                     onTextChanged: detailPage.searchText = text.trim().toLowerCase()
                                 }
                                 ComboBox {
-                                    Layout.preferredWidth: 140
+                                    Layout.preferredWidth: 130
                                     textRole: "name"
                                     valueRole: "id"
                                     model: [
@@ -387,6 +435,18 @@ ApplicationWindow {
                                         { id: Enums.ItemType.Magic, name: qsTr("Magic") }
                                     ]
                                     onActivated: detailPage.filterType = currentValue
+                                }
+                                ComboBox {
+                                    Layout.preferredWidth: 140
+                                    textRole: "name"
+                                    valueRole: "id"
+                                    model: [
+                                        { id: 0, name: qsTr("Default order") },
+                                        { id: 1, name: qsTr("Name") },
+                                        { id: 2, name: qsTr("Heaviest first") },
+                                        { id: 3, name: qsTr("Most quantity") }
+                                    ]
+                                    onActivated: detailPage.sortMode = currentValue
                                 }
                             }
 
@@ -414,7 +474,7 @@ ApplicationWindow {
 
                                     Item {
                                         Layout.preferredWidth: modelData.depth * 20
-                                        visible: modelData.depth > 0 && !detailPage.isFiltering
+                                        visible: modelData.depth > 0
                                     }
                                     Label {
                                         text: (modelData.is_container ? "📦 " : "")
