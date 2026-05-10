@@ -146,6 +146,24 @@ ApplicationWindow {
             property real carryingCapacity: 0
             property var inventoryItems: []
 
+            property string searchText: ""
+            property int filterType: -1
+
+            readonly property bool isFiltering: searchText !== "" || filterType >= 0
+            readonly property var filteredItems: {
+                let result = inventoryItems
+                if (searchText) {
+                    const needle = searchText
+                    result = result.filter(i =>
+                        (i.item_name || "").toLowerCase().includes(needle)
+                        || (i.custom_name || "").toLowerCase().includes(needle)
+                        || (i.notes || "").toLowerCase().includes(needle))
+                }
+                if (filterType >= 0)
+                    result = result.filter(i => i.item_type === filterType)
+                return result
+            }
+
             function refresh() {
                 if (!character) return
                 character = DB.getCharacter(character.id)
@@ -347,6 +365,31 @@ ApplicationWindow {
                                 }
                             }
 
+                            RowLayout {
+                                Layout.fillWidth: true
+                                visible: detailPage.inventoryItems.length > 0
+
+                                TextField {
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("Search…")
+                                    onTextChanged: detailPage.searchText = text.trim().toLowerCase()
+                                }
+                                ComboBox {
+                                    Layout.preferredWidth: 140
+                                    textRole: "name"
+                                    valueRole: "id"
+                                    model: [
+                                        { id: -1, name: qsTr("All types") },
+                                        { id: Enums.ItemType.Weapon, name: qsTr("Weapons") },
+                                        { id: Enums.ItemType.Armor, name: qsTr("Armor") },
+                                        { id: Enums.ItemType.Gear, name: qsTr("Gear") },
+                                        { id: Enums.ItemType.Tool, name: qsTr("Tools") },
+                                        { id: Enums.ItemType.Magic, name: qsTr("Magic") }
+                                    ]
+                                    onActivated: detailPage.filterType = currentValue
+                                }
+                            }
+
                             Label {
                                 Layout.fillWidth: true
                                 visible: detailPage.inventoryItems.length === 0
@@ -355,14 +398,23 @@ ApplicationWindow {
                                 horizontalAlignment: Text.AlignHCenter
                             }
 
+                            Label {
+                                Layout.fillWidth: true
+                                visible: detailPage.inventoryItems.length > 0
+                                         && detailPage.filteredItems.length === 0
+                                text: qsTr("No items match.")
+                                opacity: 0.5
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+
                             Repeater {
-                                model: detailPage.inventoryItems
+                                model: detailPage.filteredItems
                                 delegate: RowLayout {
                                     Layout.fillWidth: true
 
                                     Item {
                                         Layout.preferredWidth: modelData.depth * 20
-                                        visible: modelData.depth > 0
+                                        visible: modelData.depth > 0 && !detailPage.isFiltering
                                     }
                                     Label {
                                         text: (modelData.is_container ? "📦 " : "")
@@ -669,11 +721,25 @@ ApplicationWindow {
         property int characterId: -1
         property var itemDefs: []
         property var containerOptions: []
+        property string itemSearchText: ""
+        property int itemFilterType: -1
+
+        readonly property var filteredItemDefs: {
+            let result = itemDefs
+            if (itemSearchText) {
+                const needle = itemSearchText
+                result = result.filter(i =>
+                    (i.name || "").toLowerCase().includes(needle))
+            }
+            if (itemFilterType >= 0)
+                result = result.filter(i => i.item_type === itemFilterType)
+            return result
+        }
 
         title: qsTr("Add Item")
         modal: true
         anchors.centerIn: parent
-        width: 400
+        width: 460
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         GridLayout {
@@ -682,11 +748,44 @@ ApplicationWindow {
             columnSpacing: 12
             rowSpacing: 8
 
+            RowLayout {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+
+                TextField {
+                    id: itemSearchField
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Search…")
+                    onTextChanged: {
+                        addItemDialog.itemSearchText = text.trim().toLowerCase()
+                        itemCombo.currentIndex = 0
+                    }
+                }
+                ComboBox {
+                    id: itemTypeFilter
+                    Layout.preferredWidth: 130
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: -1, name: qsTr("All types") },
+                        { id: Enums.ItemType.Weapon, name: qsTr("Weapons") },
+                        { id: Enums.ItemType.Armor, name: qsTr("Armor") },
+                        { id: Enums.ItemType.Gear, name: qsTr("Gear") },
+                        { id: Enums.ItemType.Tool, name: qsTr("Tools") },
+                        { id: Enums.ItemType.Magic, name: qsTr("Magic") }
+                    ]
+                    onActivated: {
+                        addItemDialog.itemFilterType = currentValue
+                        itemCombo.currentIndex = 0
+                    }
+                }
+            }
+
             Label { text: qsTr("Item") }
             ComboBox {
                 id: itemCombo
                 Layout.fillWidth: true
-                model: addItemDialog.itemDefs
+                model: addItemDialog.filteredItemDefs
                 textRole: "name"
                 valueRole: "id"
             }
@@ -726,6 +825,10 @@ ApplicationWindow {
                 opts.push({ id: c.id, name: path.join(" › ") })
             }
             containerOptions = opts
+            itemSearchField.text = ""
+            itemSearchText = ""
+            itemTypeFilter.currentIndex = 0
+            itemFilterType = -1
             itemCombo.currentIndex = 0
             qtyField.value = 1
             parentCombo.currentIndex = 0
