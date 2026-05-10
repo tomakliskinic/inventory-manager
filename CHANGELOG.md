@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-05-10
+- Search and type filter for the inventory list and the Add Item catalog
+- Sort by name, weight, quantity, or date added, with an ascending/descending toggle; sorting respects container hierarchy (siblings are ordered within their parent)
+- Filtering preserves tree shape by including each match's ancestor chain so depth-based indentation continues to make sense
+
 ### 2026-05-09
 - Inventory items can be moved between containers via row menu; destination picker excludes the item itself and its descendants
 - Edit and Remove for inventory items, with mode picker (Spill / Delete with contents / Move to another container) for non-empty containers
