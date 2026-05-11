@@ -10,6 +10,13 @@
 #include <QStandardPaths>
 #include <QDebug>
 #include <QMetaEnum>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonParseError>
+#include <QDateTime>
+#include <QUrl>
+#include <functional>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {}
 
@@ -75,6 +82,253 @@ void DatabaseManager::reportError(const QString &message)
 {
     m_lastError = message;
     qWarning().noquote() << message;
+}
+
+QJsonObject DatabaseManager::buildCharacterJson(int characterId)
+{
+    const QVariantMap c = getCharacter(characterId);
+    if (c.isEmpty()) return QJsonObject();
+
+    QJsonObject character;
+    character["name"] = c.value("name").toString();
+    character["level"] = c.value("level").toInt();
+    character["strength"] = c.value("strength").toInt();
+    character["size"] = c.value("size").toInt();
+    if (!c.value("race").toString().isEmpty())
+        character["race"] = c.value("race").toString();
+    if (!c.value("class").toString().isEmpty())
+        character["class"] = c.value("class").toString();
+    if (!c.value("notes").toString().isEmpty())
+        character["notes"] = c.value("notes").toString();
+
+    const QVariantMap coins = getCoins(characterId);
+    QJsonObject coinsObj;
+    coinsObj["cp"] = coins.value("cp").toInt();
+    coinsObj["sp"] = coins.value("sp").toInt();
+    coinsObj["ep"] = coins.value("ep").toInt();
+    coinsObj["gp"] = coins.value("gp").toInt();
+    coinsObj["pp"] = coins.value("pp").toInt();
+    character["coins"] = coinsObj;
+
+    const QVariantList allItems = getInventoryTree(characterId);
+    std::function<QJsonArray(int)> buildChildren = [&](int parentId) -> QJsonArray {
+        QJsonArray arr;
+        for (const QVariant &iv : allItems) {
+            const QVariantMap item = iv.toMap();
+            const QVariant parentVar = item.value("parent_inventory_item_id");
+            const int itemParent = (parentVar.isValid() && !parentVar.isNull())
+                ? parentVar.toInt() : 0;
+            if (itemParent != parentId) continue;
+
+            QJsonObject obj;
+            obj["item"] = item.value("item_name").toString();
+            obj["quantity"] = item.value("quantity").toInt();
+            if (item.value("is_equipped").toInt() != 0)
+                obj["is_equipped"] = 1;
+            const QVariant cn = item.value("custom_name");
+            if (cn.isValid() && !cn.isNull() && !cn.toString().isEmpty())
+                obj["custom_name"] = cn.toString();
+            const QVariant nt = item.value("notes");
+            if (nt.isValid() && !nt.isNull() && !nt.toString().isEmpty())
+                obj["notes"] = nt.toString();
+
+            const QJsonArray children = buildChildren(item.value("id").toInt());
+            if (!children.isEmpty())
+                obj["children"] = children;
+
+            arr.append(obj);
+        }
+        return arr;
+    };
+    character["inventory"] = buildChildren(0);
+    return character;
+}
+
+bool DatabaseManager::writeJsonObject(const QJsonObject &root, const QString &path)
+{
+    if (path.isEmpty()) {
+        reportError(QStringLiteral("export failed: invalid file path"));
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        reportError(QStringLiteral("export failed: cannot write to %1").arg(path));
+        return false;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.close();
+    return true;
+}
+
+bool DatabaseManager::exportAllToFile(const QUrl &fileUrl)
+{
+    QJsonObject root;
+    root["version"] = 1;
+    root["exported_at"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+
+    QJsonArray charactersArray;
+    for (const QVariant &cv : getAllCharacters()) {
+        const QVariantMap c = cv.toMap();
+        charactersArray.append(buildCharacterJson(c.value("id").toInt()));
+    }
+    root["characters"] = charactersArray;
+
+    return writeJsonObject(root, fileUrl.toLocalFile());
+}
+
+bool DatabaseManager::exportCharacterToFile(int characterId, const QUrl &fileUrl)
+{
+    const QJsonObject character = buildCharacterJson(characterId);
+    if (character.isEmpty()) {
+        reportError(QStringLiteral("exportCharacterToFile failed: character %1 not found").arg(characterId));
+        return false;
+    }
+
+    QJsonObject root;
+    root["version"] = 1;
+    root["exported_at"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    QJsonArray charactersArray;
+    charactersArray.append(character);
+    root["characters"] = charactersArray;
+
+    return writeJsonObject(root, fileUrl.toLocalFile());
+}
+
+int DatabaseManager::importFromFile(const QUrl &fileUrl)
+{
+    const QString path = fileUrl.toLocalFile();
+    if (path.isEmpty()) {
+        reportError(QStringLiteral("importFromFile failed: invalid file path"));
+        return -1;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        reportError(QStringLiteral("importFromFile failed: cannot read %1").arg(path));
+        return -1;
+    }
+    const QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError) {
+        reportError(QStringLiteral("importFromFile failed: %1").arg(err.errorString()));
+        return -1;
+    }
+    if (!doc.isObject()) {
+        reportError(QStringLiteral("importFromFile failed: root is not a JSON object"));
+        return -1;
+    }
+
+    const QJsonObject root = doc.object();
+    if (!root.contains("characters") || !root["characters"].isArray()) {
+        reportError(QStringLiteral("importFromFile failed: missing 'characters' array"));
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        qWarning() << "importFromFile failed: could not begin transaction:" << m_db.lastError().text();
+        return -1;
+    }
+
+    int imported = 0;
+    const QJsonArray characters = root["characters"].toArray();
+    for (const QJsonValue &cv : characters) {
+        if (!cv.isObject()) continue;
+        const QJsonObject c = cv.toObject();
+
+        QVariantMap charData;
+        charData["name"] = c["name"].toString();
+        charData["level"] = c["level"].toInt(1);
+        charData["strength"] = c["strength"].toInt(10);
+        charData["size"] = c["size"].toInt(static_cast<int>(Enums::CreatureSize::Medium));
+        if (c.contains("race")) charData["race"] = c["race"].toString();
+        if (c.contains("class")) charData["class"] = c["class"].toString();
+        if (c.contains("notes")) charData["notes"] = c["notes"].toString();
+
+        const int charId = createCharacter(charData);
+        if (charId < 0) {
+            m_db.rollback();
+            return -1;
+        }
+
+        if (c.contains("coins") && c["coins"].isObject()) {
+            const QJsonObject coinsObj = c["coins"].toObject();
+            QVariantMap coinsData;
+            coinsData["cp"] = coinsObj["cp"].toInt();
+            coinsData["sp"] = coinsObj["sp"].toInt();
+            coinsData["ep"] = coinsObj["ep"].toInt();
+            coinsData["gp"] = coinsObj["gp"].toInt();
+            coinsData["pp"] = coinsObj["pp"].toInt();
+            updateCoins(charId, coinsData);
+        }
+
+        if (c.contains("inventory") && c["inventory"].isArray()) {
+            QSqlQuery insertItem(m_db);
+            insertItem.prepare(R"(INSERT INTO inventory_items
+                (character_id, item_id, quantity, parent_inventory_item_id, is_equipped, custom_name, notes)
+                VALUES (:char, :item, :qty, :parent, :eq, :cn, :notes))");
+
+            QSqlQuery lookupItem(m_db);
+            lookupItem.prepare("SELECT id FROM item_definitions WHERE name = :name");
+
+            std::function<bool(const QJsonArray &, int)> addItems =
+                [&](const QJsonArray &items, int parentId) -> bool {
+                for (const QJsonValue &iv : items) {
+                    if (!iv.isObject()) continue;
+                    const QJsonObject item = iv.toObject();
+
+                    const QString itemName = item["item"].toString();
+                    if (itemName.isEmpty()) continue;
+
+                    lookupItem.bindValue(":name", itemName);
+                    if (!lookupItem.exec() || !lookupItem.next()) {
+                        qWarning() << "importFromFile: skipping unknown item" << itemName;
+                        continue;
+                    }
+                    const int itemId = lookupItem.value(0).toInt();
+
+                    insertItem.bindValue(":char", charId);
+                    insertItem.bindValue(":item", itemId);
+                    insertItem.bindValue(":qty", item.value("quantity").toInt(1));
+                    insertItem.bindValue(":parent", parentId > 0 ? QVariant(parentId) : QVariant());
+                    insertItem.bindValue(":eq", item.value("is_equipped").toInt(0));
+                    const bool hasCn = item.contains("custom_name") && !item["custom_name"].isNull();
+                    insertItem.bindValue(":cn", hasCn ? QVariant(item["custom_name"].toString()) : QVariant());
+                    const bool hasNotes = item.contains("notes") && !item["notes"].isNull();
+                    insertItem.bindValue(":notes", hasNotes ? QVariant(item["notes"].toString()) : QVariant());
+
+                    if (!insertItem.exec()) {
+                        qWarning() << "importFromFile failed:" << insertItem.lastError().text();
+                        return false;
+                    }
+                    const int newId = insertItem.lastInsertId().toInt();
+
+                    if (item.contains("children") && item["children"].isArray()) {
+                        if (!addItems(item["children"].toArray(), newId))
+                            return false;
+                    }
+                }
+                return true;
+            };
+
+            if (!addItems(c["inventory"].toArray(), 0)) {
+                m_db.rollback();
+                return -1;
+            }
+        }
+
+        imported++;
+    }
+
+    if (!m_db.commit()) {
+        qWarning() << "importFromFile failed: commit failed:" << m_db.lastError().text();
+        m_db.rollback();
+        return -1;
+    }
+
+    return imported;
 }
 
 QStringList DatabaseManager::creatureSizeNames() const

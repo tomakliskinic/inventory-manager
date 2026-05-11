@@ -5,8 +5,11 @@
 #include <QtSql/QSqlDatabase>
 #include <QFileInfo>
 #include <QDir>
+#include <QUrl>
 
 #include "enums.h"
+
+class QJsonObject;
 
 class DatabaseManager : public QObject
 {
@@ -19,6 +22,10 @@ public:
     bool isInitialized() const;
 
     Q_INVOKABLE QString lastError() const;
+
+    Q_INVOKABLE bool exportAllToFile(const QUrl &fileUrl);
+    Q_INVOKABLE bool exportCharacterToFile(int characterId, const QUrl &fileUrl);
+    Q_INVOKABLE int importFromFile(const QUrl &fileUrl);
 
     Q_INVOKABLE QStringList creatureSizeNames() const;
 
@@ -49,6 +56,9 @@ public:
 
 private:
     void reportError(const QString &message);
+
+    QJsonObject buildCharacterJson(int characterId);
+    bool writeJsonObject(const QJsonObject &root, const QString &path);
 
     bool executeSql(const QString &sql);
     bool executeSqlFile(const QString &resourcePath);

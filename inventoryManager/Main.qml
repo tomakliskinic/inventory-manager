@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick.VirtualKeyboard
 import inventoryManager
@@ -30,6 +31,14 @@ ApplicationWindow {
 
     function notifyError(msg) {
         errorBanner.message = msg
+        errorBanner.isError = true
+        errorBanner.open()
+        errorTimer.restart()
+    }
+
+    function notifyInfo(msg) {
+        errorBanner.message = msg
+        errorBanner.isError = false
         errorBanner.open()
         errorTimer.restart()
     }
@@ -60,10 +69,27 @@ ApplicationWindow {
 
         Page {
             header: ToolBar {
-                Label {
-                    anchors.centerIn: parent
-                    text: qsTr("Characters")
-                    font.pixelSize: 18
+                RowLayout {
+                    anchors.fill: parent
+                    Item { Layout.preferredWidth: 8 }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("Characters")
+                        font.pixelSize: 18
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                    ToolButton {
+                        text: qsTr("Import")
+                        onClicked: importFileDialog.open()
+                    }
+                    ToolButton {
+                        text: qsTr("Export all")
+                        enabled: characters.length > 0
+                        onClicked: {
+                            exportFileDialog.targetCharacterId = -1
+                            exportFileDialog.open()
+                        }
+                    }
                 }
             }
 
@@ -251,6 +277,13 @@ ApplicationWindow {
                     ToolButton {
                         text: qsTr("Edit")
                         onClicked: characterDialog.openEdit(detailPage.character)
+                    }
+                    ToolButton {
+                        text: qsTr("Export")
+                        onClicked: {
+                            exportFileDialog.targetCharacterId = detailPage.character.id
+                            exportFileDialog.open()
+                        }
                     }
                     ToolButton {
                         text: qsTr("Delete")
@@ -1251,9 +1284,49 @@ ApplicationWindow {
         }
     }
 
+    FileDialog {
+        id: exportFileDialog
+        property int targetCharacterId: -1
+
+        title: qsTr("Export to JSON")
+        fileMode: FileDialog.SaveFile
+        nameFilters: [qsTr("JSON files (*.json)")]
+        defaultSuffix: "json"
+
+        onAccepted: {
+            const ok = targetCharacterId > 0
+                ? DB.exportCharacterToFile(targetCharacterId, selectedFile)
+                : DB.exportAllToFile(selectedFile)
+            if (ok)
+                notifyInfo(qsTr("Exported to %1").arg(selectedFile))
+            else
+                notifyError(DB.lastError() || qsTr("Export failed."))
+            targetCharacterId = -1
+        }
+        onRejected: targetCharacterId = -1
+    }
+
+    FileDialog {
+        id: importFileDialog
+        title: qsTr("Import from JSON")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("JSON files (*.json)")]
+
+        onAccepted: {
+            const count = DB.importFromFile(selectedFile)
+            if (count < 0) {
+                notifyError(DB.lastError() || qsTr("Import failed."))
+            } else {
+                refresh()
+                notifyInfo(qsTr("Imported %1 character(s).").arg(count))
+            }
+        }
+    }
+
     Popup {
         id: errorBanner
         property string message: ""
+        property bool isError: true
         modal: false
         focus: false
         closePolicy: Popup.NoAutoClose
@@ -1265,7 +1338,9 @@ ApplicationWindow {
         z: 100
 
         background: Rectangle {
-            color: Material.color(Material.Red, Material.Shade700)
+            color: errorBanner.isError
+                ? Material.color(Material.Red, Material.Shade700)
+                : Material.color(Material.Green, Material.Shade700)
             radius: 4
         }
 
