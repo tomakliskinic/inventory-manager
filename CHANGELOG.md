@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-05-11
+- JSON export of all characters from the list page, or a single character from the detail page; items are referenced by name for portability across installations that share the SRD seed catalog
+- JSON import recreates characters with their coins and full inventory tree in a transaction; unknown item names are skipped with a warning
+- Success notifications now use a green variant of the banner
+
 ### 2026-05-10
 - Search and type filter for the inventory list and the Add Item catalog
 - Sort by name, weight, quantity, or date added, with an ascending/descending toggle; sorting respects container hierarchy (siblings are ordered within their parent)
