@@ -32,6 +32,7 @@ INSERT INTO item_definitions (name, item_type, weight_lb, cost, description,
 INSERT INTO item_definitions (name, item_type, weight_lb, cost, description, rarity, requires_attunement, source) VALUES
     ('Spell Scroll (Cantrip)', 4, 0.0, '30 GP', 'Cast the cantrip using its normal casting time. DC 13, +5 attack. Scroll disintegrates.', 0, 0, 0),
     ('Spell Scroll (Level 1)', 4, 0.0, '50 GP', 'Cast the level 1 spell using its normal casting time. DC 13, +5 attack. Scroll disintegrates.', 0, 0, 0),
+    ('Potion of Healing', 4, 0.5, '50 GP', 'Bonus Action. Regain 2d4+2 HP.', 0, 0, 0),
     ('Potion of Greater Healing', 4, 0.5, NULL, 'Bonus Action. Regain 4d4+4 HP.', 1, 0, 0),
     ('Potion of Superior Healing', 4, 0.5, NULL, 'Bonus Action. Regain 8d4+8 HP.', 2, 0, 0),
     ('Potion of Supreme Healing', 4, 0.5, NULL, 'Bonus Action. Regain 10d4+20 HP.', 3, 0, 0);

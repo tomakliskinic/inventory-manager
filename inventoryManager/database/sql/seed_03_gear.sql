@@ -65,7 +65,6 @@ INSERT INTO item_definitions (name, item_type, weight_lb, cost, description, sou
     ('Perfume',              2, 0.0,  '5 GP',     'Advantage on CHA (Persuasion) vs Indifferent Humanoid within 5 ft.',      0),
     ('Poison, Basic',        2, 0.0,  '100 GP',   'Bonus Action to coat weapon. +1d4 Poison damage for 1 minute.',           0),
     ('Pole',                 2, 7.0,  '5 CP',     '10 feet long. Advantage on jump checks when vaulting.',                   0),
-    ('Potion of Healing',    2, 0.5,  '50 GP',    'Bonus Action. Regain 2d4+2 HP. Magic item.',                              0),
     ('Ram, Portable',        2, 35.0, '4 GP',     '+4 STR to break doors. Another character can help for Advantage.',        0),
     ('Rations',              2, 2.0,  '5 SP',     'One day of travel-ready food.',                                           0),
     ('Robe',                 2, 4.0,  '1 GP',     'Ceremonial significance. Required for some events.',                      0),
