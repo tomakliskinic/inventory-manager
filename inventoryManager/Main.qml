@@ -61,6 +61,7 @@ ApplicationWindow {
                  && !itemRemoveSimpleConfirm.opened
                  && !itemRemoveContainerDialog.opened
                  && !itemMoveDialog.opened
+                 && !itemDefinitionViewDialog.opened
         onActivated: stack.pop()
     }
 
@@ -77,6 +78,10 @@ ApplicationWindow {
                         text: qsTr("Characters")
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
+                    }
+                    ToolButton {
+                        text: qsTr("Items")
+                        onClicked: stack.push(itemCatalogPageComponent)
                     }
                     ToolButton {
                         text: qsTr("Import")
@@ -156,6 +161,159 @@ ApplicationWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottomMargin: 16
                 onClicked: characterDialog.openCreate()
+            }
+        }
+    }
+
+    Component {
+        id: itemCatalogPageComponent
+
+        Page {
+            id: catalogPage
+            property var allItems: []
+            property string searchText: ""
+            property int filterType: -1
+            property int filterSource: -1
+            property bool searchInDescription: false
+
+            readonly property var filteredItems: {
+                let result = allItems
+                if (searchText) {
+                    const needle = searchText
+                    const includeDesc = searchInDescription
+                    result = result.filter(i => {
+                        if ((i.name || "").toLowerCase().includes(needle)) return true
+                        if (includeDesc && (i.description || "").toLowerCase().includes(needle)) return true
+                        return false
+                    })
+                }
+                if (filterType >= 0)
+                    result = result.filter(i => i.item_type === filterType)
+                if (filterSource >= 0)
+                    result = result.filter(i => i.source === filterSource)
+                return result
+            }
+
+            function refresh() {
+                allItems = DB.getItemDefinitions()
+            }
+
+            Component.onCompleted: refresh()
+
+            header: ToolBar {
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    ToolButton {
+                        text: "←"
+                        font.pixelSize: 20
+                        onClicked: stack.pop()
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("Item Catalog")
+                        font.pixelSize: 18
+                    }
+                }
+            }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    TextField {
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Search…")
+                        onTextChanged: catalogPage.searchText = text.trim().toLowerCase()
+                    }
+                    CheckBox {
+                        text: qsTr("Description")
+                        checked: catalogPage.searchInDescription
+                        onToggled: catalogPage.searchInDescription = checked
+                    }
+                    ComboBox {
+                        Layout.preferredWidth: 130
+                        textRole: "name"
+                        valueRole: "id"
+                        model: [
+                            { id: -1, name: qsTr("All types") },
+                            { id: Enums.ItemType.Weapon, name: qsTr("Weapons") },
+                            { id: Enums.ItemType.Armor, name: qsTr("Armor") },
+                            { id: Enums.ItemType.Gear, name: qsTr("Gear") },
+                            { id: Enums.ItemType.Tool, name: qsTr("Tools") },
+                            { id: Enums.ItemType.Magic, name: qsTr("Magic") }
+                        ]
+                        onActivated: catalogPage.filterType = currentValue
+                    }
+                    ComboBox {
+                        Layout.preferredWidth: 130
+                        textRole: "name"
+                        valueRole: "id"
+                        model: [
+                            { id: -1, name: qsTr("All sources") },
+                            { id: Enums.ItemSource.SRD, name: qsTr("SRD") },
+                            { id: Enums.ItemSource.Homebrew, name: qsTr("Homebrew") }
+                        ]
+                        onActivated: catalogPage.filterSource = currentValue
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    visible: catalogPage.filteredItems.length === 0
+                    text: catalogPage.allItems.length === 0
+                        ? qsTr("No items in catalog")
+                        : qsTr("No items match.")
+                    opacity: 0.5
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: catalogPage.filteredItems
+                    spacing: 2
+
+                    delegate: ItemDelegate {
+                        width: ListView.view.width
+
+                        contentItem: RowLayout {
+                            Label {
+                                text: (modelData.is_container ? "📦 " : "") + modelData.name
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                text: ["Weapon", "Armor", "Gear", "Tool", "Magic"][modelData.item_type] || ""
+                                opacity: 0.6
+                                Layout.preferredWidth: 70
+                            }
+                            Label {
+                                text: qsTr("%1 lb").arg(modelData.weight_lb.toFixed(1))
+                                opacity: 0.6
+                                Layout.preferredWidth: 60
+                                horizontalAlignment: Text.AlignRight
+                            }
+                            Label {
+                                text: modelData.source === Enums.ItemSource.Homebrew ? "🛠" : ""
+                                font.pixelSize: 14
+                                Layout.preferredWidth: 24
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        onClicked: {
+                            itemDefinitionViewDialog.item = modelData
+                            itemDefinitionViewDialog.open()
+                        }
+                    }
+                }
             }
         }
     }
@@ -1282,6 +1440,134 @@ ApplicationWindow {
             item = null
             characterId = -1
         }
+    }
+
+    Dialog {
+        id: itemDefinitionViewDialog
+        property var item: null
+
+        title: item ? item.name : ""
+        modal: true
+        anchors.centerIn: parent
+        width: 480
+        height: Math.min(window.height - 60, 540)
+        standardButtons: Dialog.Close
+
+        ScrollView {
+            anchors.fill: parent
+            contentWidth: availableWidth
+            clip: true
+
+            GridLayout {
+                width: itemDefinitionViewDialog.availableWidth - 20
+                columns: 2
+                columnSpacing: 16
+                rowSpacing: 8
+
+                Label { text: qsTr("Type"); font.bold: true }
+                Label {
+                    text: itemDefinitionViewDialog.item
+                        ? (["Weapon", "Armor", "Gear", "Tool", "Magic"][itemDefinitionViewDialog.item.item_type] || "—")
+                        : ""
+                }
+
+                Label { text: qsTr("Weight"); font.bold: true }
+                Label {
+                    text: itemDefinitionViewDialog.item
+                        ? qsTr("%1 lb").arg(itemDefinitionViewDialog.item.weight_lb.toFixed(1))
+                        : ""
+                }
+
+                Label {
+                    text: qsTr("Cost"); font.bold: true
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.cost
+                }
+                Label {
+                    text: itemDefinitionViewDialog.item ? (itemDefinitionViewDialog.item.cost || "") : ""
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.cost
+                }
+
+                Label {
+                    text: qsTr("Rarity"); font.bold: true
+                    visible: itemDefinitionViewDialog.item && Number.isFinite(itemDefinitionViewDialog.item.rarity)
+                }
+                Label {
+                    text: itemDefinitionViewDialog.item
+                        ? (["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"][itemDefinitionViewDialog.item.rarity] || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.item && Number.isFinite(itemDefinitionViewDialog.item.rarity)
+                }
+
+                Label {
+                    text: qsTr("Attunement"); font.bold: true
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.requires_attunement
+                }
+                Label {
+                    text: qsTr("Required")
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.requires_attunement
+                }
+
+                Label {
+                    text: qsTr("Container"); font.bold: true
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.is_container
+                }
+                Label {
+                    text: qsTr("Yes")
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.is_container
+                }
+
+                Label {
+                    text: qsTr("Capacity"); font.bold: true
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.is_container
+                             && Number.isFinite(itemDefinitionViewDialog.item.container_weight_capacity)
+                             && itemDefinitionViewDialog.item.container_weight_capacity > 0
+                }
+                Label {
+                    text: itemDefinitionViewDialog.item && Number.isFinite(itemDefinitionViewDialog.item.container_weight_capacity)
+                        ? qsTr("%1 lb").arg(itemDefinitionViewDialog.item.container_weight_capacity.toFixed(0))
+                        : ""
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.is_container
+                             && Number.isFinite(itemDefinitionViewDialog.item.container_weight_capacity)
+                             && itemDefinitionViewDialog.item.container_weight_capacity > 0
+                }
+
+                Label {
+                    text: qsTr("Fixed weight"); font.bold: true
+                    visible: itemDefinitionViewDialog.item
+                             && Number.isFinite(itemDefinitionViewDialog.item.fixed_weight)
+                             && itemDefinitionViewDialog.item.fixed_weight > 0
+                }
+                Label {
+                    text: itemDefinitionViewDialog.item && Number.isFinite(itemDefinitionViewDialog.item.fixed_weight)
+                        ? qsTr("%1 lb").arg(itemDefinitionViewDialog.item.fixed_weight.toFixed(1))
+                        : ""
+                    visible: itemDefinitionViewDialog.item
+                             && Number.isFinite(itemDefinitionViewDialog.item.fixed_weight)
+                             && itemDefinitionViewDialog.item.fixed_weight > 0
+                }
+
+                Label { text: qsTr("Source"); font.bold: true }
+                Label {
+                    text: itemDefinitionViewDialog.item
+                        ? (itemDefinitionViewDialog.item.source === Enums.ItemSource.Homebrew ? qsTr("Homebrew") : qsTr("SRD"))
+                        : ""
+                }
+
+                Label {
+                    text: qsTr("Description"); font.bold: true
+                    Layout.alignment: Qt.AlignTop
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.description
+                }
+                Label {
+                    text: itemDefinitionViewDialog.item ? (itemDefinitionViewDialog.item.description || "") : ""
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    visible: itemDefinitionViewDialog.item && itemDefinitionViewDialog.item.description
+                }
+            }
+        }
+
+        onClosed: item = null
     }
 
     FileDialog {
