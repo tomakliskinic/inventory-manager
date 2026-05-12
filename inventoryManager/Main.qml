@@ -62,6 +62,7 @@ ApplicationWindow {
                  && !itemRemoveContainerDialog.opened
                  && !itemMoveDialog.opened
                  && !itemDefinitionViewDialog.opened
+                 && !itemDefinitionEditDialog.opened
         onActivated: stack.pop()
     }
 
@@ -214,6 +215,10 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         text: qsTr("Item Catalog")
                         font.pixelSize: 18
+                    }
+                    ToolButton {
+                        text: qsTr("+ Add")
+                        onClicked: itemDefinitionEditDialog.openCreate()
                     }
                 }
             }
@@ -1568,6 +1573,215 @@ ApplicationWindow {
         }
 
         onClosed: item = null
+    }
+
+    Dialog {
+        id: itemDefinitionEditDialog
+        property int editingId: -1
+
+        title: editingId === -1 ? qsTr("New Item") : qsTr("Edit Item")
+        modal: true
+        anchors.centerIn: parent
+        width: 500
+        height: Math.min(window.height - 60, 620)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        ScrollView {
+            anchors.fill: parent
+            contentWidth: availableWidth
+            clip: true
+
+            GridLayout {
+                width: itemDefinitionEditDialog.availableWidth - 20
+                columns: 2
+                columnSpacing: 12
+                rowSpacing: 8
+
+                Label { text: qsTr("Name") }
+                TextField {
+                    id: itemDefNameField
+                    Layout.fillWidth: true
+                }
+
+                Label { text: qsTr("Type") }
+                ComboBox {
+                    id: itemDefTypeField
+                    Layout.fillWidth: true
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: Enums.ItemType.Weapon, name: qsTr("Weapon") },
+                        { id: Enums.ItemType.Armor, name: qsTr("Armor") },
+                        { id: Enums.ItemType.Gear, name: qsTr("Gear") },
+                        { id: Enums.ItemType.Tool, name: qsTr("Tool") },
+                        { id: Enums.ItemType.Magic, name: qsTr("Magic") }
+                    ]
+                }
+
+                Label { text: qsTr("Weight (lb)") }
+                TextField {
+                    id: itemDefWeightField
+                    Layout.fillWidth: true
+                    validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
+                    placeholderText: "0.0"
+                }
+
+                Label { text: qsTr("Cost") }
+                RowLayout {
+                    Layout.fillWidth: true
+                    SpinBox {
+                        id: itemDefCostAmountField
+                        from: 0; to: 99999
+                        Layout.fillWidth: true
+                        editable: true
+                    }
+                    ComboBox {
+                        id: itemDefCostCurrencyField
+                        Layout.preferredWidth: 80
+                        model: ["CP", "SP", "EP", "GP", "PP"]
+                        currentIndex: 3
+                    }
+                }
+
+                Label { text: qsTr("Rarity") }
+                ComboBox {
+                    id: itemDefRarityField
+                    Layout.fillWidth: true
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: -1, name: qsTr("None") },
+                        { id: Enums.ItemRarity.Common, name: qsTr("Common") },
+                        { id: Enums.ItemRarity.Uncommon, name: qsTr("Uncommon") },
+                        { id: Enums.ItemRarity.Rare, name: qsTr("Rare") },
+                        { id: Enums.ItemRarity.VeryRare, name: qsTr("Very Rare") },
+                        { id: Enums.ItemRarity.Legendary, name: qsTr("Legendary") },
+                        { id: Enums.ItemRarity.Artifact, name: qsTr("Artifact") }
+                    ]
+                }
+
+                Label { text: qsTr("Attunement") }
+                CheckBox {
+                    id: itemDefAttunementField
+                }
+
+                Label { text: qsTr("Container") }
+                CheckBox {
+                    id: itemDefIsContainerField
+                }
+
+                Label {
+                    text: qsTr("Capacity (lb)")
+                    visible: itemDefIsContainerField.checked
+                }
+                TextField {
+                    id: itemDefCapacityField
+                    Layout.fillWidth: true
+                    visible: itemDefIsContainerField.checked
+                    validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
+                    placeholderText: qsTr("optional weight limit")
+                }
+
+                Label {
+                    text: qsTr("Fixed weight (lb)")
+                    visible: itemDefIsContainerField.checked
+                }
+                TextField {
+                    id: itemDefFixedWeightField
+                    Layout.fillWidth: true
+                    visible: itemDefIsContainerField.checked
+                    validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
+                    placeholderText: qsTr("e.g. Bag of Holding")
+                }
+
+                Label {
+                    text: qsTr("Description")
+                    Layout.alignment: Qt.AlignTop
+                }
+                ScrollView {
+                    id: itemDefDescScroll
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 100
+                    clip: true
+
+                    function ensureCursorVisible(r) {
+                        const flick = contentItem
+                        const margin = 6
+                        const top = r.y - margin
+                        const bottom = r.y + r.height + margin
+                        if (top < flick.contentY)
+                            flick.contentY = Math.max(0, top)
+                        else if (bottom > flick.contentY + flick.height)
+                            flick.contentY = Math.min(
+                                bottom - flick.height,
+                                Math.max(0, flick.contentHeight - flick.height))
+                    }
+
+                    TextArea {
+                        id: itemDefDescField
+                        wrapMode: TextArea.Wrap
+                        onCursorRectangleChanged: itemDefDescScroll.ensureCursorVisible(cursorRectangle)
+                    }
+                }
+            }
+        }
+
+        function resetForm() {
+            editingId = -1
+            itemDefNameField.text = ""
+            itemDefTypeField.currentIndex = 0
+            itemDefWeightField.text = ""
+            itemDefCostAmountField.value = 0
+            itemDefCostCurrencyField.currentIndex = 3
+            itemDefRarityField.currentIndex = 0
+            itemDefAttunementField.checked = false
+            itemDefIsContainerField.checked = false
+            itemDefCapacityField.text = ""
+            itemDefFixedWeightField.text = ""
+            itemDefDescField.text = ""
+        }
+
+        function openCreate() {
+            resetForm()
+            open()
+        }
+
+        onAccepted: {
+            const name = itemDefNameField.text.trim()
+            if (!name) {
+                resetForm()
+                return
+            }
+
+            const costAmount = itemDefCostAmountField.value
+            const data = {
+                "name": name,
+                "item_type": itemDefTypeField.currentValue,
+                "weight_lb": parseFloat(itemDefWeightField.text) || 0,
+                "cost": costAmount > 0 ? (costAmount + " " + itemDefCostCurrencyField.currentText) : null,
+                "description": itemDefDescField.text.trim() || null,
+                "is_container": itemDefIsContainerField.checked ? 1 : 0,
+                "requires_attunement": itemDefAttunementField.checked ? 1 : 0
+            }
+            if (itemDefRarityField.currentValue !== undefined && itemDefRarityField.currentValue >= 0)
+                data.rarity = itemDefRarityField.currentValue
+            if (itemDefIsContainerField.checked) {
+                const cap = parseFloat(itemDefCapacityField.text)
+                if (cap > 0) data.container_weight_capacity = cap
+                const fw = parseFloat(itemDefFixedWeightField.text)
+                if (fw > 0) data.fixed_weight = fw
+            }
+
+            if (editingId === -1) {
+                const newId = DB.createItemDefinition(data)
+                if (newId < 0)
+                    notifyError(DB.lastError() || qsTr("Couldn't create item."))
+                else
+                    refreshCurrentDetail()
+            }
+            resetForm()
+        }
+        onRejected: resetForm()
     }
 
     FileDialog {

@@ -545,6 +545,71 @@ QVariantMap DatabaseManager::getItemDefinition(int id)
     return map;
 }
 
+int DatabaseManager::createItemDefinition(const QVariantMap &data)
+{
+    QString name = data.value("name").toString().trimmed();
+    if (name.isEmpty()) {
+        reportError(QStringLiteral("createItemDefinition failed: name is required"));
+        return -1;
+    }
+
+    QSqlQuery check(m_db);
+    check.prepare("SELECT COUNT(*) FROM item_definitions WHERE name = :name");
+    check.bindValue(":name", name);
+    if (check.exec() && check.next() && check.value(0).toInt() > 0) {
+        reportError(QStringLiteral("createItemDefinition failed: an item named '%1' already exists").arg(name));
+        return -1;
+    }
+
+    auto optionalText = [&](const QString &key) -> QVariant {
+        const QVariant v = data.value(key);
+        if (!v.isValid() || v.isNull() || v.toString().isEmpty())
+            return QVariant();
+        return v;
+    };
+
+    auto optionalPositive = [&](const QString &key) -> QVariant {
+        if (!data.contains(key)) return QVariant();
+        const double d = data.value(key).toDouble();
+        return d > 0 ? QVariant(d) : QVariant();
+    };
+
+    auto optionalNonNegativeInt = [&](const QString &key) -> QVariant {
+        if (!data.contains(key)) return QVariant();
+        const int i = data.value(key).toInt();
+        return i >= 0 ? QVariant(i) : QVariant();
+    };
+
+    const bool isContainer = data.value("is_container", 0).toInt() != 0;
+
+    QSqlQuery insert(m_db);
+    insert.prepare(R"(INSERT INTO item_definitions
+        (name, item_type, weight_lb, cost, description,
+         is_container, container_weight_capacity, fixed_weight,
+         rarity, requires_attunement, source)
+        VALUES (:name, :item_type, :weight_lb, :cost, :description,
+                :is_container, :container_weight_capacity, :fixed_weight,
+                :rarity, :requires_attunement, :source))");
+
+    insert.bindValue(":name", name);
+    insert.bindValue(":item_type", data.value("item_type").toInt());
+    insert.bindValue(":weight_lb", data.value("weight_lb", 0.0).toDouble());
+    insert.bindValue(":cost", optionalText("cost"));
+    insert.bindValue(":description", optionalText("description"));
+    insert.bindValue(":is_container", isContainer ? 1 : 0);
+    insert.bindValue(":container_weight_capacity", isContainer ? optionalPositive("container_weight_capacity") : QVariant());
+    insert.bindValue(":fixed_weight", isContainer ? optionalPositive("fixed_weight") : QVariant());
+    insert.bindValue(":rarity", optionalNonNegativeInt("rarity"));
+    insert.bindValue(":requires_attunement", data.value("requires_attunement", 0).toInt() != 0 ? 1 : 0);
+    insert.bindValue(":source", static_cast<int>(Enums::ItemSource::Homebrew));
+
+    if (!insert.exec()) {
+        reportError(QStringLiteral("createItemDefinition failed: %1").arg(insert.lastError().text()));
+        return -1;
+    }
+    return insert.lastInsertId().toInt();
+}
+
 QVariantMap DatabaseManager::getWeaponDetails(int itemId)
 {
     QSqlQuery query(m_db);
