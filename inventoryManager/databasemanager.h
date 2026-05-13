@@ -41,6 +41,8 @@ public:
     Q_INVOKABLE QVariantList getItemDefinitions (int itemType = -1);
     Q_INVOKABLE QVariantMap getItemDefinition(int id);
     Q_INVOKABLE int createItemDefinition(const QVariantMap &data);
+    Q_INVOKABLE bool updateItemDefinition(int id, const QVariantMap &data);
+    Q_INVOKABLE bool deleteItemDefinition(int id);
     QVariantMap getWeaponDetails(int itemId);
     QVariantMap getArmorDetails(int itemId);
 

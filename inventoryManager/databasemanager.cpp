@@ -610,6 +610,116 @@ int DatabaseManager::createItemDefinition(const QVariantMap &data)
     return insert.lastInsertId().toInt();
 }
 
+bool DatabaseManager::updateItemDefinition(int id, const QVariantMap &data)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", id);
+    if (!check.exec() || !check.next()) {
+        reportError(QStringLiteral("updateItemDefinition failed: item %1 not found").arg(id));
+        return false;
+    }
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("updateItemDefinition failed: cannot modify SRD items"));
+        return false;
+    }
+
+    static const QStringList allowed = {
+        "name", "item_type", "weight_lb", "cost", "description",
+        "is_container", "container_weight_capacity", "fixed_weight",
+        "rarity", "requires_attunement"
+    };
+
+    QStringList assignments;
+    for (const QString &field : allowed) {
+        if (data.contains(field))
+            assignments << field + " = :" + field;
+    }
+    if (assignments.isEmpty())
+        return false;
+
+    QString trimmedName;
+    if (data.contains("name")) {
+        trimmedName = data.value("name").toString().trimmed();
+        if (trimmedName.isEmpty()) {
+            reportError(QStringLiteral("updateItemDefinition failed: name cannot be empty"));
+            return false;
+        }
+        QSqlQuery nameCheck(m_db);
+        nameCheck.prepare("SELECT COUNT(*) FROM item_definitions WHERE name = :name AND id != :id");
+        nameCheck.bindValue(":name", trimmedName);
+        nameCheck.bindValue(":id", id);
+        if (nameCheck.exec() && nameCheck.next() && nameCheck.value(0).toInt() > 0) {
+            reportError(QStringLiteral("updateItemDefinition failed: an item named '%1' already exists").arg(trimmedName));
+            return false;
+        }
+    }
+
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE item_definitions SET " + assignments.join(", ") + " WHERE id = :id");
+    query.bindValue(":id", id);
+
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+        if (!allowed.contains(it.key())) continue;
+
+        if (it.key() == "name") {
+            query.bindValue(":name", trimmedName);
+        } else if (it.key() == "cost" || it.key() == "description") {
+            const QVariant v = it.value();
+            if (!v.isValid() || v.isNull() || v.toString().isEmpty())
+                query.bindValue(":" + it.key(), QVariant());
+            else
+                query.bindValue(":" + it.key(), v);
+        } else if (it.key() == "container_weight_capacity" || it.key() == "fixed_weight") {
+            const double d = it.value().toDouble();
+            query.bindValue(":" + it.key(), d > 0 ? QVariant(d) : QVariant());
+        } else if (it.key() == "rarity") {
+            const int r = it.value().toInt();
+            query.bindValue(":" + it.key(), r >= 0 ? QVariant(r) : QVariant());
+        } else {
+            query.bindValue(":" + it.key(), it.value());
+        }
+    }
+
+    if (!query.exec()) {
+        reportError(QStringLiteral("updateItemDefinition failed: %1").arg(query.lastError().text()));
+        return false;
+    }
+    return query.numRowsAffected() > 0;
+}
+
+bool DatabaseManager::deleteItemDefinition(int id)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", id);
+    if (!check.exec() || !check.next()) {
+        reportError(QStringLiteral("deleteItemDefinition failed: item %1 not found").arg(id));
+        return false;
+    }
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("deleteItemDefinition failed: cannot delete SRD items"));
+        return false;
+    }
+
+    QSqlQuery refCheck(m_db);
+    refCheck.prepare("SELECT COUNT(*) FROM inventory_items WHERE item_id = :id");
+    refCheck.bindValue(":id", id);
+    if (refCheck.exec() && refCheck.next() && refCheck.value(0).toInt() > 0) {
+        reportError(QStringLiteral("deleteItemDefinition failed: item is in use; remove from inventories first"));
+        return false;
+    }
+
+    QSqlQuery query(m_db);
+    query.prepare("DELETE FROM item_definitions WHERE id = :id");
+    query.bindValue(":id", id);
+    if (!query.exec()) {
+        reportError(QStringLiteral("deleteItemDefinition failed: %1").arg(query.lastError().text()));
+        return false;
+    }
+    return query.numRowsAffected() > 0;
+}
+
 QVariantMap DatabaseManager::getWeaponDetails(int itemId)
 {
     QSqlQuery query(m_db);

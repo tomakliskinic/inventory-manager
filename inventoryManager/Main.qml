@@ -63,6 +63,7 @@ ApplicationWindow {
                  && !itemMoveDialog.opened
                  && !itemDefinitionViewDialog.opened
                  && !itemDefinitionEditDialog.opened
+                 && !catalogDeleteConfirm.opened
         onActivated: stack.pop()
     }
 
@@ -311,11 +312,37 @@ ApplicationWindow {
                                 Layout.preferredWidth: 24
                                 horizontalAlignment: Text.AlignHCenter
                             }
+                            ToolButton {
+                                text: "⋮"
+                                font.pixelSize: 16
+                                visible: modelData.source === Enums.ItemSource.Homebrew
+                                onClicked: {
+                                    catalogRowMenu.item = modelData
+                                    catalogRowMenu.popup()
+                                }
+                            }
                         }
 
                         onClicked: {
                             itemDefinitionViewDialog.item = modelData
                             itemDefinitionViewDialog.open()
+                        }
+                    }
+                }
+
+                Menu {
+                    id: catalogRowMenu
+                    property var item: null
+
+                    MenuItem {
+                        text: qsTr("Edit")
+                        onTriggered: itemDefinitionEditDialog.openEdit(catalogRowMenu.item)
+                    }
+                    MenuItem {
+                        text: qsTr("Delete")
+                        onTriggered: {
+                            catalogDeleteConfirm.item = catalogRowMenu.item
+                            catalogDeleteConfirm.open()
                         }
                     }
                 }
@@ -1746,6 +1773,45 @@ ApplicationWindow {
             open()
         }
 
+        function openEdit(item) {
+            editingId = item.id
+            itemDefNameField.text = item.name || ""
+
+            const typeIdx = itemDefTypeField.model.findIndex(t => t.id === item.item_type)
+            itemDefTypeField.currentIndex = typeIdx >= 0 ? typeIdx : 0
+
+            itemDefWeightField.text = Number.isFinite(item.weight_lb) ? item.weight_lb.toString() : "0"
+
+            let costAmount = 0
+            let costCurrencyIdx = 3
+            if (item.cost) {
+                const match = item.cost.match(/^(\d+)\s+(CP|SP|EP|GP|PP)$/)
+                if (match) {
+                    costAmount = parseInt(match[1])
+                    costCurrencyIdx = ["CP", "SP", "EP", "GP", "PP"].indexOf(match[2])
+                }
+            }
+            itemDefCostAmountField.value = costAmount
+            itemDefCostCurrencyField.currentIndex = costCurrencyIdx
+
+            if (Number.isFinite(item.rarity)) {
+                const rIdx = itemDefRarityField.model.findIndex(r => r.id === item.rarity)
+                itemDefRarityField.currentIndex = rIdx >= 0 ? rIdx : 0
+            } else {
+                itemDefRarityField.currentIndex = 0
+            }
+
+            itemDefAttunementField.checked = !!item.requires_attunement
+            itemDefIsContainerField.checked = !!item.is_container
+            itemDefCapacityField.text = Number.isFinite(item.container_weight_capacity)
+                ? item.container_weight_capacity.toString() : ""
+            itemDefFixedWeightField.text = Number.isFinite(item.fixed_weight)
+                ? item.fixed_weight.toString() : ""
+
+            itemDefDescField.text = item.description || ""
+            open()
+        }
+
         onAccepted: {
             const name = itemDefNameField.text.trim()
             if (!name) {
@@ -1778,10 +1844,47 @@ ApplicationWindow {
                     notifyError(DB.lastError() || qsTr("Couldn't create item."))
                 else
                     refreshCurrentDetail()
+            } else {
+                const ok = DB.updateItemDefinition(editingId, data)
+                if (!ok)
+                    notifyError(DB.lastError() || qsTr("Couldn't update item."))
+                else
+                    refreshCurrentDetail()
             }
             resetForm()
         }
         onRejected: resetForm()
+    }
+
+    Dialog {
+        id: catalogDeleteConfirm
+        property var item: null
+
+        title: qsTr("Delete Item?")
+        modal: true
+        anchors.centerIn: parent
+        width: 380
+        standardButtons: Dialog.Yes | Dialog.No
+
+        Label {
+            anchors.fill: parent
+            text: catalogDeleteConfirm.item
+                ? qsTr("Delete \"%1\"? This cannot be undone.").arg(catalogDeleteConfirm.item.name)
+                : ""
+            wrapMode: Text.Wrap
+        }
+
+        onAccepted: {
+            if (item) {
+                const ok = DB.deleteItemDefinition(item.id)
+                if (!ok)
+                    notifyError(DB.lastError() || qsTr("Couldn't delete item."))
+                else
+                    refreshCurrentDetail()
+            }
+            item = null
+        }
+        onRejected: item = null
     }
 
     FileDialog {
