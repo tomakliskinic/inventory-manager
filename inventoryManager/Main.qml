@@ -323,10 +323,7 @@ ApplicationWindow {
                             }
                         }
 
-                        onClicked: {
-                            itemDefinitionViewDialog.item = modelData
-                            itemDefinitionViewDialog.open()
-                        }
+                        onClicked: itemDefinitionViewDialog.openFor(modelData)
                     }
                 }
 
@@ -1477,12 +1474,24 @@ ApplicationWindow {
     Dialog {
         id: itemDefinitionViewDialog
         property var item: null
+        property var weaponDetails: ({})
+
+        readonly property bool isWeapon: !!item && item.item_type === Enums.ItemType.Weapon
+
+        function openFor(it) {
+            item = it
+            if (it && it.item_type === Enums.ItemType.Weapon)
+                weaponDetails = DB.getWeaponDetails(it.id)
+            else
+                weaponDetails = ({})
+            open()
+        }
 
         title: item ? item.name : ""
         modal: true
         anchors.centerIn: parent
         width: 480
-        height: Math.min(window.height - 60, 540)
+        height: Math.min(window.height - 60, 600)
         standardButtons: Dialog.Close
 
         ScrollView {
@@ -1583,6 +1592,100 @@ ApplicationWindow {
                     text: itemDefinitionViewDialog.item
                         ? (itemDefinitionViewDialog.item.source === Enums.ItemSource.Homebrew ? qsTr("Homebrew") : qsTr("SRD"))
                         : ""
+                }
+
+                Label {
+                    text: qsTr("Category"); font.bold: true
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && Number.isFinite(itemDefinitionViewDialog.weaponDetails.category)
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isWeapon
+                        ? (["Simple", "Martial"][itemDefinitionViewDialog.weaponDetails.category] || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && Number.isFinite(itemDefinitionViewDialog.weaponDetails.category)
+                }
+
+                Label {
+                    text: qsTr("Range"); font.bold: true
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && Number.isFinite(itemDefinitionViewDialog.weaponDetails.range_type)
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isWeapon
+                        ? (["Melee", "Ranged"][itemDefinitionViewDialog.weaponDetails.range_type] || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && Number.isFinite(itemDefinitionViewDialog.weaponDetails.range_type)
+                }
+
+                Label {
+                    text: qsTr("Damage"); font.bold: true
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.damage_dice
+                }
+                Label {
+                    text: {
+                        if (!itemDefinitionViewDialog.isWeapon) return ""
+                        const wd = itemDefinitionViewDialog.weaponDetails
+                        const damageTypes = ["Bludgeoning", "Piercing", "Slashing", "Acid", "Cold", "Fire",
+                            "Force", "Lightning", "Necrotic", "Poison", "Psychic", "Radiant", "Thunder"]
+                        const dt = damageTypes[wd.damage_type] || ""
+                        return (wd.damage_dice || "") + (dt ? " " + dt : "")
+                    }
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.damage_dice
+                }
+
+                Label {
+                    text: qsTr("Properties"); font.bold: true
+                    Layout.alignment: Qt.AlignTop
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.properties
+                             && itemDefinitionViewDialog.weaponDetails.properties !== "[]"
+                }
+                Label {
+                    text: {
+                        if (!itemDefinitionViewDialog.isWeapon) return ""
+                        try {
+                            const arr = JSON.parse(itemDefinitionViewDialog.weaponDetails.properties || "[]")
+                            return arr.join(", ")
+                        } catch (e) {
+                            return ""
+                        }
+                    }
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.properties
+                             && itemDefinitionViewDialog.weaponDetails.properties !== "[]"
+                }
+
+                Label {
+                    text: qsTr("Mastery"); font.bold: true
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.mastery
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isWeapon
+                        ? (itemDefinitionViewDialog.weaponDetails.mastery || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.mastery
+                }
+
+                Label {
+                    text: qsTr("Ammunition"); font.bold: true
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.ammunition_type
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isWeapon
+                        ? (itemDefinitionViewDialog.weaponDetails.ammunition_type || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.isWeapon
+                             && !!itemDefinitionViewDialog.weaponDetails.ammunition_type
                 }
 
                 Label {

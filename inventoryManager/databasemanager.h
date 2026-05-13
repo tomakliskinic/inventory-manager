@@ -43,8 +43,8 @@ public:
     Q_INVOKABLE int createItemDefinition(const QVariantMap &data);
     Q_INVOKABLE bool updateItemDefinition(int id, const QVariantMap &data);
     Q_INVOKABLE bool deleteItemDefinition(int id);
-    QVariantMap getWeaponDetails(int itemId);
-    QVariantMap getArmorDetails(int itemId);
+    Q_INVOKABLE QVariantMap getWeaponDetails(int itemId);
+    Q_INVOKABLE QVariantMap getArmorDetails(int itemId);
 
     Q_INVOKABLE int addInventoryItem(int characterId, int itemId, int quantity = 1, int parentInventoryItemId = -1);
     Q_INVOKABLE bool updateInventoryItem(int id, const QVariantMap &data);
