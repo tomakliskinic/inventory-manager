@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2026-05-13
+- Edit and delete actions for Homebrew item definitions, reachable from a per-row ⋮ menu (SRD entries stay view-only and have no menu)
+- Delete pre-check reports "item is in use" when the definition is referenced by any character's inventory, instead of surfacing a generic FK error
+
+### 2026-05-12
+- Browseable item catalog reachable from the character list header; supports search (with optional description match), filter by type, and filter by source (All / SRD / Homebrew)
+- Read-only item detail dialog on row tap showing all common fields with NULL-safe visibility
+- Create Homebrew item definitions via "+ Add" dialog covering name, type, weight, cost (amount + currency picker), rarity, attunement, container flag with optional capacity and fixed weight, and description
+
 ### 2026-05-11
 - JSON export of all characters from the list page, or a single character from the detail page; items are referenced by name for portability across installations that share the SRD seed catalog
 - JSON import recreates characters with their coins and full inventory tree in a transaction; unknown item names are skipped with a warning
