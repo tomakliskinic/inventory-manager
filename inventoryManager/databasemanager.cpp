@@ -16,6 +16,7 @@
 #include <QJsonParseError>
 #include <QDateTime>
 #include <QUrl>
+#include <QRegularExpression>
 #include <functional>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {}
@@ -688,6 +689,45 @@ bool DatabaseManager::updateItemDefinition(int id, const QVariantMap &data)
     return query.numRowsAffected() > 0;
 }
 
+int DatabaseManager::saveItemDefinition(int id, const QVariantMap &itemData, const QVariantMap &weaponData)
+{
+    if (!m_db.transaction()) {
+        reportError(QStringLiteral("saveItemDefinition failed: could not begin transaction: %1").arg(m_db.lastError().text()));
+        return -1;
+    }
+
+    auto body = [&]() -> int {
+        int savedId = id;
+
+        if (id <= 0) {
+            savedId = createItemDefinition(itemData);
+            if (savedId < 0) return -1;
+        } else {
+            if (!updateItemDefinition(id, itemData)) return -1;
+        }
+
+        const int itemType = itemData.value("item_type", -1).toInt();
+        if (itemType == static_cast<int>(Enums::ItemType::Weapon)) {
+            if (!setWeaponDetails(savedId, weaponData)) return -1;
+        } else if (id > 0) {
+            if (!clearWeaponDetails(savedId)) return -1;
+        }
+        return savedId;
+    };
+
+    const int result = body();
+    if (result < 0) {
+        m_db.rollback();
+        return -1;
+    }
+    if (!m_db.commit()) {
+        reportError(QStringLiteral("saveItemDefinition failed: commit failed: %1").arg(m_db.lastError().text()));
+        m_db.rollback();
+        return -1;
+    }
+    return result;
+}
+
 bool DatabaseManager::deleteItemDefinition(int id)
 {
     QSqlQuery check(m_db);
@@ -733,6 +773,92 @@ QVariantMap DatabaseManager::getWeaponDetails(int itemId)
     for (int i=0; i<record.count(); i++)
         map.insert(record.fieldName(i), query.value(i));
     return map;
+}
+
+bool DatabaseManager::setWeaponDetails(int itemId, const QVariantMap &data)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT item_type, source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", itemId);
+    if (!check.exec() || !check.next()) {
+        reportError(QStringLiteral("setWeaponDetails failed: item %1 not found").arg(itemId));
+        return false;
+    }
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemType::Weapon)) {
+        reportError(QStringLiteral("setWeaponDetails failed: item %1 is not a weapon").arg(itemId));
+        return false;
+    }
+    if (check.value(1).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("setWeaponDetails failed: cannot modify SRD items"));
+        return false;
+    }
+
+    const QString damageDice = data.value("damage_dice").toString().trimmed();
+    if (damageDice.isEmpty()) {
+        reportError(QStringLiteral("setWeaponDetails failed: damage_dice is required"));
+        return false;
+    }
+    static const QRegularExpression diceRegex(QStringLiteral("^[1-9]\\d*(d[1-9]\\d*)?$"));
+    if (!diceRegex.match(damageDice).hasMatch()) {
+        reportError(QStringLiteral("setWeaponDetails failed: damage_dice '%1' must be N or NdS with positive values (e.g. 1, 1d8, 2d6)").arg(damageDice));
+        return false;
+    }
+
+    auto optionalText = [&](const QString &key) -> QVariant {
+        const QVariant v = data.value(key);
+        if (!v.isValid() || v.isNull() || v.toString().isEmpty())
+            return QVariant();
+        return v.toString();
+    };
+
+    QSqlQuery q(m_db);
+    q.prepare(R"(INSERT INTO weapon_details
+        (item_id, category, range_type, damage_dice, damage_type, properties, mastery, ammunition_type)
+        VALUES (:item_id, :category, :range_type, :damage_dice, :damage_type, :properties, :mastery, :ammunition_type)
+        ON CONFLICT(item_id) DO UPDATE SET
+            category = excluded.category,
+            range_type = excluded.range_type,
+            damage_dice = excluded.damage_dice,
+            damage_type = excluded.damage_type,
+            properties = excluded.properties,
+            mastery = excluded.mastery,
+            ammunition_type = excluded.ammunition_type)");
+    q.bindValue(":item_id", itemId);
+    q.bindValue(":category", data.value("category").toInt());
+    q.bindValue(":range_type", data.value("range_type").toInt());
+    q.bindValue(":damage_dice", damageDice);
+    q.bindValue(":damage_type", data.value("damage_type").toInt());
+    q.bindValue(":properties", data.value("properties", "[]").toString());
+    q.bindValue(":mastery", optionalText("mastery"));
+    q.bindValue(":ammunition_type", optionalText("ammunition_type"));
+
+    if (!q.exec()) {
+        reportError(QStringLiteral("setWeaponDetails failed: %1").arg(q.lastError().text()));
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::clearWeaponDetails(int itemId)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", itemId);
+    if (!check.exec() || !check.next())
+        return false;
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("clearWeaponDetails failed: cannot modify SRD items"));
+        return false;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM weapon_details WHERE item_id = :id");
+    q.bindValue(":id", itemId);
+    if (!q.exec()) {
+        reportError(QStringLiteral("clearWeaponDetails failed: %1").arg(q.lastError().text()));
+        return false;
+    }
+    return true;
 }
 
 QVariantMap DatabaseManager::getArmorDetails(int itemId)

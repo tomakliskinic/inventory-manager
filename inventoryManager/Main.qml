@@ -1709,6 +1709,25 @@ ApplicationWindow {
         id: itemDefinitionEditDialog
         property int editingId: -1
 
+        readonly property bool isValid: {
+            if (!itemDefNameField.text.trim()) return false
+            if (itemDefTypeField.currentValue === Enums.ItemType.Weapon) {
+                const dice = weaponDamageDiceField.text.trim()
+                if (!/^[1-9]\d*(d[1-9]\d*)?$/.test(dice)) return false
+            }
+            return true
+        }
+
+        readonly property bool containerEligible: {
+            const t = itemDefTypeField.currentValue
+            return t !== Enums.ItemType.Weapon && t !== Enums.ItemType.Armor
+        }
+
+        onOpened: {
+            const okBtn = standardButton(Dialog.Ok)
+            if (okBtn) okBtn.enabled = Qt.binding(() => isValid)
+        }
+
         title: editingId === -1 ? qsTr("New Item") : qsTr("Edit Item")
         modal: true
         anchors.centerIn: parent
@@ -1795,33 +1814,146 @@ ApplicationWindow {
                     id: itemDefAttunementField
                 }
 
-                Label { text: qsTr("Container") }
+                Label {
+                    text: qsTr("Container")
+                    visible: itemDefinitionEditDialog.containerEligible
+                }
                 CheckBox {
                     id: itemDefIsContainerField
+                    visible: itemDefinitionEditDialog.containerEligible
                 }
 
                 Label {
                     text: qsTr("Capacity (lb)")
-                    visible: itemDefIsContainerField.checked
+                    visible: itemDefinitionEditDialog.containerEligible && itemDefIsContainerField.checked
                 }
                 TextField {
                     id: itemDefCapacityField
                     Layout.fillWidth: true
-                    visible: itemDefIsContainerField.checked
+                    visible: itemDefinitionEditDialog.containerEligible && itemDefIsContainerField.checked
                     validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
                     placeholderText: qsTr("optional weight limit")
                 }
 
                 Label {
                     text: qsTr("Fixed weight (lb)")
-                    visible: itemDefIsContainerField.checked
+                    visible: itemDefinitionEditDialog.containerEligible && itemDefIsContainerField.checked
                 }
                 TextField {
                     id: itemDefFixedWeightField
                     Layout.fillWidth: true
-                    visible: itemDefIsContainerField.checked
+                    visible: itemDefinitionEditDialog.containerEligible && itemDefIsContainerField.checked
                     validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
                     placeholderText: qsTr("e.g. Bag of Holding")
+                }
+
+                Label {
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    text: qsTr("Weapon details")
+                    font.bold: true
+                    Layout.topMargin: 8
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+
+                Label {
+                    text: qsTr("Category")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                ComboBox {
+                    id: weaponCategoryField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: Enums.WeaponCategory.Simple, name: qsTr("Simple") },
+                        { id: Enums.WeaponCategory.Martial, name: qsTr("Martial") }
+                    ]
+                }
+
+                Label {
+                    text: qsTr("Range")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                ComboBox {
+                    id: weaponRangeField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: Enums.WeaponRangeType.Melee, name: qsTr("Melee") },
+                        { id: Enums.WeaponRangeType.Ranged, name: qsTr("Ranged") }
+                    ]
+                }
+
+                Label {
+                    text: qsTr("Damage dice")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                TextField {
+                    id: weaponDamageDiceField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                    placeholderText: qsTr("e.g. 1d8 or 1")
+                    validator: RegularExpressionValidator { regularExpression: /^[1-9]\d*(d[1-9]\d*)?$/ }
+                }
+
+                Label {
+                    text: qsTr("Damage type")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                ComboBox {
+                    id: weaponDamageTypeField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: Enums.DamageType.Bludgeoning, name: qsTr("Bludgeoning") },
+                        { id: Enums.DamageType.Piercing, name: qsTr("Piercing") },
+                        { id: Enums.DamageType.Slashing, name: qsTr("Slashing") },
+                        { id: Enums.DamageType.Acid, name: qsTr("Acid") },
+                        { id: Enums.DamageType.Cold, name: qsTr("Cold") },
+                        { id: Enums.DamageType.Fire, name: qsTr("Fire") },
+                        { id: Enums.DamageType.Force, name: qsTr("Force") },
+                        { id: Enums.DamageType.Lightning, name: qsTr("Lightning") },
+                        { id: Enums.DamageType.Necrotic, name: qsTr("Necrotic") },
+                        { id: Enums.DamageType.Poison, name: qsTr("Poison") },
+                        { id: Enums.DamageType.Psychic, name: qsTr("Psychic") },
+                        { id: Enums.DamageType.Radiant, name: qsTr("Radiant") },
+                        { id: Enums.DamageType.Thunder, name: qsTr("Thunder") }
+                    ]
+                }
+
+                Label {
+                    text: qsTr("Mastery")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                ComboBox {
+                    id: weaponMasteryField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                    model: ["", "Cleave", "Graze", "Nick", "Push", "Sap", "Slow", "Topple", "Vex"]
+                    displayText: currentIndex === 0 ? qsTr("(none)") : currentText
+                    delegate: ItemDelegate {
+                        width: weaponMasteryField.width
+                        text: modelData === "" ? qsTr("(none)") : modelData
+                    }
+                }
+
+                Label {
+                    text: qsTr("Ammunition")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && weaponRangeField.currentValue === Enums.WeaponRangeType.Ranged
+                }
+                TextField {
+                    id: weaponAmmoField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && weaponRangeField.currentValue === Enums.WeaponRangeType.Ranged
+                    placeholderText: qsTr("e.g. Arrow (optional)")
                 }
 
                 Label {
@@ -1869,6 +2001,12 @@ ApplicationWindow {
             itemDefCapacityField.text = ""
             itemDefFixedWeightField.text = ""
             itemDefDescField.text = ""
+            weaponCategoryField.currentIndex = 0
+            weaponRangeField.currentIndex = 0
+            weaponDamageDiceField.text = ""
+            weaponDamageTypeField.currentIndex = 0
+            weaponMasteryField.currentIndex = 0
+            weaponAmmoField.text = ""
         }
 
         function openCreate() {
@@ -1912,6 +2050,21 @@ ApplicationWindow {
                 ? item.fixed_weight.toString() : ""
 
             itemDefDescField.text = item.description || ""
+
+            if (item.item_type === Enums.ItemType.Weapon) {
+                const wd = DB.getWeaponDetails(item.id)
+                weaponCategoryField.currentIndex = wd.category !== undefined
+                    ? weaponCategoryField.model.findIndex(c => c.id === wd.category) : 0
+                weaponRangeField.currentIndex = wd.range_type !== undefined
+                    ? weaponRangeField.model.findIndex(r => r.id === wd.range_type) : 0
+                weaponDamageDiceField.text = wd.damage_dice || ""
+                weaponDamageTypeField.currentIndex = wd.damage_type !== undefined
+                    ? weaponDamageTypeField.model.findIndex(d => d.id === wd.damage_type) : 0
+                const masteryList = ["", "Cleave", "Graze", "Nick", "Push", "Sap", "Slow", "Topple", "Vex"]
+                const masteryIdx = masteryList.indexOf(wd.mastery || "")
+                weaponMasteryField.currentIndex = masteryIdx >= 0 ? masteryIdx : 0
+                weaponAmmoField.text = wd.ammunition_type || ""
+            }
             open()
         }
 
@@ -1923,37 +2076,41 @@ ApplicationWindow {
             }
 
             const costAmount = itemDefCostAmountField.value
+            const containerOn = containerEligible && itemDefIsContainerField.checked
             const data = {
                 "name": name,
                 "item_type": itemDefTypeField.currentValue,
                 "weight_lb": parseFloat(itemDefWeightField.text) || 0,
                 "cost": costAmount > 0 ? (costAmount + " " + itemDefCostCurrencyField.currentText) : null,
                 "description": itemDefDescField.text.trim() || null,
-                "is_container": itemDefIsContainerField.checked ? 1 : 0,
+                "is_container": containerOn ? 1 : 0,
                 "requires_attunement": itemDefAttunementField.checked ? 1 : 0
             }
             if (itemDefRarityField.currentValue !== undefined && itemDefRarityField.currentValue >= 0)
                 data.rarity = itemDefRarityField.currentValue
-            if (itemDefIsContainerField.checked) {
+            if (containerOn) {
                 const cap = parseFloat(itemDefCapacityField.text)
                 if (cap > 0) data.container_weight_capacity = cap
                 const fw = parseFloat(itemDefFixedWeightField.text)
                 if (fw > 0) data.fixed_weight = fw
             }
 
-            if (editingId === -1) {
-                const newId = DB.createItemDefinition(data)
-                if (newId < 0)
-                    notifyError(DB.lastError() || qsTr("Couldn't create item."))
-                else
-                    refreshCurrentDetail()
-            } else {
-                const ok = DB.updateItemDefinition(editingId, data)
-                if (!ok)
-                    notifyError(DB.lastError() || qsTr("Couldn't update item."))
-                else
-                    refreshCurrentDetail()
+            const isRanged = weaponRangeField.currentValue === Enums.WeaponRangeType.Ranged
+            const weaponData = {
+                "category": weaponCategoryField.currentValue,
+                "range_type": weaponRangeField.currentValue,
+                "damage_dice": weaponDamageDiceField.text.trim(),
+                "damage_type": weaponDamageTypeField.currentValue,
+                "properties": "[]",
+                "mastery": weaponMasteryField.currentText || null,
+                "ammunition_type": isRanged ? (weaponAmmoField.text.trim() || null) : null
             }
+
+            const savedId = DB.saveItemDefinition(editingId, data, weaponData)
+            if (savedId < 0)
+                notifyError(DB.lastError() || qsTr("Couldn't save item."))
+            else
+                refreshCurrentDetail()
             resetForm()
         }
         onRejected: resetForm()
