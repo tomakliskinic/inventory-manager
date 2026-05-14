@@ -1723,6 +1723,15 @@ ApplicationWindow {
             return t !== Enums.ItemType.Weapon && t !== Enums.ItemType.Armor
         }
 
+        function propChecked(index) {
+            if (weaponPropertiesRepeater.count <= index) return false
+            const cb = weaponPropertiesRepeater.itemAt(index)
+            return cb ? cb.checked : false
+        }
+        readonly property bool ammunitionChecked: propChecked(0)
+        readonly property bool thrownChecked: propChecked(6)
+        readonly property bool versatileChecked: propChecked(8)
+
         onOpened: {
             const okBtn = standardButton(Dialog.Ok)
             if (okBtn) okBtn.enabled = Qt.binding(() => isValid)
@@ -1928,6 +1937,117 @@ ApplicationWindow {
                 }
 
                 Label {
+                    text: qsTr("Properties")
+                    Layout.alignment: Qt.AlignTop
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+
+                    Repeater {
+                        id: weaponPropertiesRepeater
+                        model: ["Ammunition", "Finesse", "Heavy", "Light", "Loading",
+                                "Reach", "Thrown", "Two-Handed", "Versatile"]
+                        delegate: CheckBox {
+                            text: modelData
+                            padding: 4
+                            visible: {
+                                const isRanged = weaponRangeField.currentValue === Enums.WeaponRangeType.Ranged
+                                if (isRanged)
+                                    return modelData !== "Reach" && modelData !== "Versatile"
+                                return modelData !== "Ammunition" && modelData !== "Loading"
+                            }
+                            onToggled: {
+                                function setOther(name, val) {
+                                    for (let i = 0; i < weaponPropertiesRepeater.count; i++) {
+                                        if (weaponPropertiesRepeater.model[i] === name) {
+                                            const cb = weaponPropertiesRepeater.itemAt(i)
+                                            if (cb) cb.checked = val
+                                            return
+                                        }
+                                    }
+                                }
+                                if (checked) {
+                                    if (modelData === "Heavy") setOther("Light", false)
+                                    else if (modelData === "Light") setOther("Heavy", false)
+                                    else if (modelData === "Two-Handed") setOther("Versatile", false)
+                                    else if (modelData === "Versatile") setOther("Two-Handed", false)
+                                    else if (modelData === "Loading") setOther("Ammunition", true)
+                                } else {
+                                    if (modelData === "Ammunition") setOther("Loading", false)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Label {
+                    text: qsTr("Versatile damage")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.versatileChecked
+                }
+                TextField {
+                    id: weaponVersatileDiceField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.versatileChecked
+                    placeholderText: qsTr("two-handed dice, e.g. 1d10")
+                    validator: RegularExpressionValidator { regularExpression: /^[1-9]\d*(d[1-9]\d*)?$/ }
+                }
+
+                Label {
+                    text: qsTr("Thrown range (ft)")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.thrownChecked
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.thrownChecked
+                    TextField {
+                        id: weaponThrownShortField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("short")
+                        validator: IntValidator { bottom: 1; top: 9999 }
+                    }
+                    Label { text: "/" }
+                    TextField {
+                        id: weaponThrownLongField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("long")
+                        validator: IntValidator { bottom: 1; top: 9999 }
+                    }
+                }
+
+                Label {
+                    text: qsTr("Ammunition range (ft)")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.ammunitionChecked
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
+                             && itemDefinitionEditDialog.ammunitionChecked
+                    TextField {
+                        id: weaponAmmoShortField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("short")
+                        validator: IntValidator { bottom: 1; top: 9999 }
+                    }
+                    Label { text: "/" }
+                    TextField {
+                        id: weaponAmmoLongField
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("long")
+                        validator: IntValidator { bottom: 1; top: 9999 }
+                    }
+                }
+
+                Label {
                     text: qsTr("Mastery")
                     visible: itemDefTypeField.currentValue === Enums.ItemType.Weapon
                 }
@@ -2007,6 +2127,15 @@ ApplicationWindow {
             weaponDamageTypeField.currentIndex = 0
             weaponMasteryField.currentIndex = 0
             weaponAmmoField.text = ""
+            for (let i = 0; i < weaponPropertiesRepeater.count; i++) {
+                const cb = weaponPropertiesRepeater.itemAt(i)
+                if (cb) cb.checked = false
+            }
+            weaponVersatileDiceField.text = ""
+            weaponThrownShortField.text = ""
+            weaponThrownLongField.text = ""
+            weaponAmmoShortField.text = ""
+            weaponAmmoLongField.text = ""
         }
 
         function openCreate() {
@@ -2064,6 +2193,34 @@ ApplicationWindow {
                 const masteryIdx = masteryList.indexOf(wd.mastery || "")
                 weaponMasteryField.currentIndex = masteryIdx >= 0 ? masteryIdx : 0
                 weaponAmmoField.text = wd.ammunition_type || ""
+
+                let savedProps = []
+                try {
+                    const parsed = JSON.parse(wd.properties || "[]")
+                    if (Array.isArray(parsed)) savedProps = parsed
+                } catch (e) { /* leave empty */ }
+                for (let i = 0; i < weaponPropertiesRepeater.count; i++) {
+                    const cb = weaponPropertiesRepeater.itemAt(i)
+                    if (!cb) continue
+                    const name = weaponPropertiesRepeater.model[i]
+                    cb.checked = savedProps.some(p => typeof p === "string" && p.startsWith(name))
+                }
+                for (const p of savedProps) {
+                    if (typeof p !== "string") continue
+                    let m = p.match(/^Versatile \(([^)]+)\)$/)
+                    if (m) { weaponVersatileDiceField.text = m[1]; continue }
+                    m = p.match(/^Thrown \(Range (\d+)\/(\d+)\)$/)
+                    if (m) {
+                        weaponThrownShortField.text = m[1]
+                        weaponThrownLongField.text = m[2]
+                        continue
+                    }
+                    m = p.match(/^Ammunition \(Range (\d+)\/(\d+)\)$/)
+                    if (m) {
+                        weaponAmmoShortField.text = m[1]
+                        weaponAmmoLongField.text = m[2]
+                    }
+                }
             }
             open()
         }
@@ -2096,12 +2253,32 @@ ApplicationWindow {
             }
 
             const isRanged = weaponRangeField.currentValue === Enums.WeaponRangeType.Ranged
+            const selectedProps = []
+            for (let i = 0; i < weaponPropertiesRepeater.count; i++) {
+                const cb = weaponPropertiesRepeater.itemAt(i)
+                if (!cb || !cb.checked || !cb.visible) continue
+                const name = weaponPropertiesRepeater.model[i]
+                if (name === "Versatile") {
+                    const dice = weaponVersatileDiceField.text.trim()
+                    selectedProps.push(dice ? `Versatile (${dice})` : "Versatile")
+                } else if (name === "Thrown") {
+                    const s = parseInt(weaponThrownShortField.text)
+                    const l = parseInt(weaponThrownLongField.text)
+                    selectedProps.push(s > 0 && l > 0 ? `Thrown (Range ${s}/${l})` : "Thrown")
+                } else if (name === "Ammunition") {
+                    const s = parseInt(weaponAmmoShortField.text)
+                    const l = parseInt(weaponAmmoLongField.text)
+                    selectedProps.push(s > 0 && l > 0 ? `Ammunition (Range ${s}/${l})` : "Ammunition")
+                } else {
+                    selectedProps.push(name)
+                }
+            }
             const weaponData = {
                 "category": weaponCategoryField.currentValue,
                 "range_type": weaponRangeField.currentValue,
                 "damage_dice": weaponDamageDiceField.text.trim(),
                 "damage_type": weaponDamageTypeField.currentValue,
-                "properties": "[]",
+                "properties": JSON.stringify(selectedProps),
                 "mastery": weaponMasteryField.currentText || null,
                 "ammunition_type": isRanged ? (weaponAmmoField.text.trim() || null) : null
             }
