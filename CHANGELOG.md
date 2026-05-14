@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-05-14
+- Item view dialog displays weapon-specific fields (category, range, damage dice + type, properties, mastery, ammunition type) when present
+- Homebrew weapon edit gains a weapon section: category, range, damage dice (regex-validated), damage type, mastery, and ammunition type (only when Ranged); container fields hidden on Weapon/Armor; item + weapon_details written in a single transaction
+- Weapon properties multi-select: 9-checkbox grid with range-type filtering (Reach/Versatile melee-only, Ammunition/Loading ranged-only), parameterized inputs for Versatile/Thrown/Ammunition saved in SRD seed format, and SRD invariants enforced (Heavy excludes Light, Two-Handed excludes Versatile, Loading requires Ammunition)
+
 ### 2026-05-13
 - Edit and delete actions for Homebrew item definitions, reachable from a per-row ⋮ menu (SRD entries stay view-only and have no menu)
 - Delete pre-check reports "item is in use" when the definition is referenced by any character's inventory, instead of surfacing a generic FK error
