@@ -16,6 +16,7 @@ qt_add_qml_module(appinventoryManager
     URI inventoryManager
     QML_FILES
         Main.qml
+        WeaponDetailsForm.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp
