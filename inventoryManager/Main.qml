@@ -1475,15 +1475,17 @@ ApplicationWindow {
         id: itemDefinitionViewDialog
         property var item: null
         property var weaponDetails: ({})
+        property var armorDetails: ({})
 
         readonly property bool isWeapon: !!item && item.item_type === Enums.ItemType.Weapon
+        readonly property bool isArmor: !!item && item.item_type === Enums.ItemType.Armor
 
         function openFor(it) {
             item = it
-            if (it && it.item_type === Enums.ItemType.Weapon)
-                weaponDetails = DB.getWeaponDetails(it.id)
-            else
-                weaponDetails = ({})
+            weaponDetails = (it && it.item_type === Enums.ItemType.Weapon)
+                ? DB.getWeaponDetails(it.id) : ({})
+            armorDetails = (it && it.item_type === Enums.ItemType.Armor)
+                ? DB.getArmorDetails(it.id) : ({})
             open()
         }
 
@@ -1686,6 +1688,84 @@ ApplicationWindow {
                         : ""
                     visible: itemDefinitionViewDialog.isWeapon
                              && !!itemDefinitionViewDialog.weaponDetails.ammunition_type
+                }
+
+                Label {
+                    text: qsTr("Armor category"); font.bold: true
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.category)
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isArmor
+                        ? (["Light", "Medium", "Heavy", "Shield"][itemDefinitionViewDialog.armorDetails.category] || "")
+                        : ""
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.category)
+                }
+
+                Label {
+                    text: qsTr("Armor Class"); font.bold: true
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.ac_base)
+                }
+                Label {
+                    text: {
+                        if (!itemDefinitionViewDialog.isArmor) return ""
+                        const ad = itemDefinitionViewDialog.armorDetails
+                        if (ad.category === Enums.ArmorCategory.Shield)
+                            return "+" + ad.ac_base
+                        if (ad.category === Enums.ArmorCategory.Heavy)
+                            return "" + ad.ac_base
+                        if (Number.isFinite(ad.ac_dex_max) && ad.ac_dex_max > 0)
+                            return ad.ac_base + " + Dex modifier (max " + ad.ac_dex_max + ")"
+                        return ad.ac_base + " + Dex modifier"
+                    }
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.ac_base)
+                }
+
+                Label {
+                    text: qsTr("Strength required"); font.bold: true
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.strength_required)
+                             && itemDefinitionViewDialog.armorDetails.strength_required > 0
+                }
+                Label {
+                    text: itemDefinitionViewDialog.isArmor && Number.isFinite(itemDefinitionViewDialog.armorDetails.strength_required)
+                        ? ("Str " + itemDefinitionViewDialog.armorDetails.strength_required) : ""
+                    visible: itemDefinitionViewDialog.isArmor
+                             && Number.isFinite(itemDefinitionViewDialog.armorDetails.strength_required)
+                             && itemDefinitionViewDialog.armorDetails.strength_required > 0
+                }
+
+                Label {
+                    text: qsTr("Stealth"); font.bold: true
+                    visible: itemDefinitionViewDialog.isArmor
+                             && itemDefinitionViewDialog.armorDetails.stealth_disadvantage
+                }
+                Label {
+                    text: qsTr("Disadvantage")
+                    visible: itemDefinitionViewDialog.isArmor
+                             && itemDefinitionViewDialog.armorDetails.stealth_disadvantage
+                }
+
+                Label {
+                    text: qsTr("Don / Doff"); font.bold: true
+                    visible: itemDefinitionViewDialog.isArmor
+                             && (Number.isFinite(itemDefinitionViewDialog.armorDetails.don_minutes)
+                                 || Number.isFinite(itemDefinitionViewDialog.armorDetails.doff_minutes))
+                }
+                Label {
+                    text: {
+                        if (!itemDefinitionViewDialog.isArmor) return ""
+                        const ad = itemDefinitionViewDialog.armorDetails
+                        const don = Number.isFinite(ad.don_minutes) ? ad.don_minutes + " min" : "—"
+                        const doff = Number.isFinite(ad.doff_minutes) ? ad.doff_minutes + " min" : "—"
+                        return don + " / " + doff
+                    }
+                    visible: itemDefinitionViewDialog.isArmor
+                             && (Number.isFinite(itemDefinitionViewDialog.armorDetails.don_minutes)
+                                 || Number.isFinite(itemDefinitionViewDialog.armorDetails.doff_minutes))
                 }
 
                 Label {
