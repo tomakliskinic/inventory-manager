@@ -1741,12 +1741,12 @@ ApplicationWindow {
                 Label {
                     text: qsTr("Stealth"); font.bold: true
                     visible: itemDefinitionViewDialog.isArmor
-                             && itemDefinitionViewDialog.armorDetails.stealth_disadvantage
+                             && !!itemDefinitionViewDialog.armorDetails.stealth_disadvantage
                 }
                 Label {
                     text: qsTr("Disadvantage")
                     visible: itemDefinitionViewDialog.isArmor
-                             && itemDefinitionViewDialog.armorDetails.stealth_disadvantage
+                             && !!itemDefinitionViewDialog.armorDetails.stealth_disadvantage
                 }
 
                 Label {
