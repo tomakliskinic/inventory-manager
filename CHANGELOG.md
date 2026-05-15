@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-05-15
+- Item view dialog displays armor-specific fields (category, AC formula formatted per category, strength required, stealth disadvantage, don/doff times) when present
+- Homebrew armor edit gains an armor section (category, base AC, Dex modifier cap, strength required, stealth, don/doff minutes); Shield collapses to category + AC bonus only; switching an item's type cleans up the prior detail row
+- Category-driven prefill in armor edit according to SRD: picking Light/Medium/Heavy/Shield auto-fills AC base, don/doff, Dex cap, and stealth
+
 ### 2026-05-14
 - Item view dialog displays weapon-specific fields (category, range, damage dice + type, properties, mastery, ammunition type) when present
 - Homebrew weapon edit gains a weapon section: category, range, damage dice (regex-validated), damage type, mastery, and ammunition type (only when Ranged); container fields hidden on Weapon/Armor; item + weapon_details written in a single transaction
