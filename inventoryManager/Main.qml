@@ -1812,6 +1812,9 @@ ApplicationWindow {
         readonly property bool thrownChecked: propChecked(6)
         readonly property bool versatileChecked: propChecked(8)
 
+        readonly property bool isShield: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                                          && armorCategoryField.currentValue === Enums.ArmorCategory.Shield
+
         onOpened: {
             const okBtn = standardButton(Dialog.Ok)
             if (okBtn) okBtn.enabled = Qt.binding(() => isValid)
@@ -2157,6 +2160,138 @@ ApplicationWindow {
                 }
 
                 Label {
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    text: qsTr("Armor details")
+                    font.bold: true
+                    Layout.topMargin: 8
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                }
+
+                Label {
+                    text: qsTr("Category")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                }
+                ComboBox {
+                    id: armorCategoryField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                    textRole: "name"
+                    valueRole: "id"
+                    model: [
+                        { id: Enums.ArmorCategory.Light,  name: qsTr("Light") },
+                        { id: Enums.ArmorCategory.Medium, name: qsTr("Medium") },
+                        { id: Enums.ArmorCategory.Heavy,  name: qsTr("Heavy") },
+                        { id: Enums.ArmorCategory.Shield, name: qsTr("Shield") }
+                    ]
+                    onActivated: {
+                        if (currentValue === Enums.ArmorCategory.Shield) {
+                            armorAcBaseField.value = 2
+                            return
+                        }
+                        if (currentValue === Enums.ArmorCategory.Light) {
+                            armorAcBaseField.value = 11
+                            armorDonField.text     = "1"
+                            armorDoffField.text    = "1"
+                            armorDexCapField.text  = ""
+                            armorStealthField.checked = false
+                        } else if (currentValue === Enums.ArmorCategory.Medium) {
+                            armorAcBaseField.value = 13
+                            armorDonField.text     = "5"
+                            armorDoffField.text    = "1"
+                            armorDexCapField.text  = "2"
+                            armorStealthField.checked = false
+                        } else if (currentValue === Enums.ArmorCategory.Heavy) {
+                            armorAcBaseField.value = 16
+                            armorDonField.text     = "10"
+                            armorDoffField.text    = "5"
+                            armorDexCapField.text  = "0"
+                            armorStealthField.checked = true
+                        }
+                    }
+                }
+
+                Label {
+                    text: itemDefinitionEditDialog.isShield ? qsTr("AC bonus") : qsTr("Base AC")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                }
+                SpinBox {
+                    id: armorAcBaseField
+                    from: 1; to: 30
+                    value: 10
+                    editable: true
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                }
+
+                Label {
+                    text: qsTr("Dex modifier cap")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+                TextField {
+                    id: armorDexCapField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                    placeholderText: qsTr("blank = no cap, 0 = no Dex, e.g. 2")
+                    validator: IntValidator { bottom: 0; top: 10 }
+                }
+
+                Label {
+                    text: qsTr("Strength required")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+                TextField {
+                    id: armorStrengthField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                    placeholderText: qsTr("optional, e.g. 13")
+                    validator: IntValidator { bottom: 1; top: 30 }
+                }
+
+                Label {
+                    text: qsTr("Stealth disadvantage")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+                CheckBox {
+                    id: armorStealthField
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+
+                Label {
+                    text: qsTr("Don time (min)")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+                TextField {
+                    id: armorDonField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                    placeholderText: qsTr("optional")
+                    validator: IntValidator { bottom: 1; top: 60 }
+                }
+
+                Label {
+                    text: qsTr("Doff time (min)")
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                }
+                TextField {
+                    id: armorDoffField
+                    Layout.fillWidth: true
+                    visible: itemDefTypeField.currentValue === Enums.ItemType.Armor
+                             && !itemDefinitionEditDialog.isShield
+                    placeholderText: qsTr("optional")
+                    validator: IntValidator { bottom: 1; top: 60 }
+                }
+
+                Label {
                     text: qsTr("Description")
                     Layout.alignment: Qt.AlignTop
                 }
@@ -2216,6 +2351,13 @@ ApplicationWindow {
             weaponThrownLongField.text = ""
             weaponAmmoShortField.text = ""
             weaponAmmoLongField.text = ""
+            armorCategoryField.currentIndex = 0
+            armorAcBaseField.value = 10
+            armorDexCapField.text = ""
+            armorStrengthField.text = ""
+            armorStealthField.checked = false
+            armorDonField.text = ""
+            armorDoffField.text = ""
         }
 
         function openCreate() {
@@ -2301,6 +2443,16 @@ ApplicationWindow {
                         weaponAmmoLongField.text = m[2]
                     }
                 }
+            } else if (item.item_type === Enums.ItemType.Armor) {
+                const ad = DB.getArmorDetails(item.id)
+                const catIdx = armorCategoryField.model.findIndex(c => c.id === ad.category)
+                armorCategoryField.currentIndex = catIdx >= 0 ? catIdx : 0
+                armorAcBaseField.value = Number.isFinite(ad.ac_base) ? ad.ac_base : 10
+                armorDexCapField.text = Number.isFinite(ad.ac_dex_max) ? ad.ac_dex_max.toString() : ""
+                armorStrengthField.text = Number.isFinite(ad.strength_required) ? ad.strength_required.toString() : ""
+                armorStealthField.checked = !!ad.stealth_disadvantage
+                armorDonField.text = Number.isFinite(ad.don_minutes) ? ad.don_minutes.toString() : ""
+                armorDoffField.text = Number.isFinite(ad.doff_minutes) ? ad.doff_minutes.toString() : ""
             }
             open()
         }
@@ -2363,7 +2515,24 @@ ApplicationWindow {
                 "ammunition_type": isRanged ? (weaponAmmoField.text.trim() || null) : null
             }
 
-            const savedId = DB.saveItemDefinition(editingId, data, weaponData)
+            const optInt = (s) => {
+                const t = (s || "").trim()
+                if (!t) return null
+                const n = parseInt(t)
+                return Number.isFinite(n) ? n : null
+            }
+            const isShield = armorCategoryField.currentValue === Enums.ArmorCategory.Shield
+            const armorData = {
+                "category": armorCategoryField.currentValue,
+                "ac_base": armorAcBaseField.value,
+                "ac_dex_max": isShield ? null : optInt(armorDexCapField.text),
+                "strength_required": isShield ? null : optInt(armorStrengthField.text),
+                "stealth_disadvantage": isShield ? 0 : (armorStealthField.checked ? 1 : 0),
+                "don_minutes": isShield ? null : optInt(armorDonField.text),
+                "doff_minutes": isShield ? null : optInt(armorDoffField.text)
+            }
+
+            const savedId = DB.saveItemDefinition(editingId, data, weaponData, armorData)
             if (savedId < 0)
                 notifyError(DB.lastError() || qsTr("Couldn't save item."))
             else

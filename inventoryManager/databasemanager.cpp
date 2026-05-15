@@ -689,7 +689,9 @@ bool DatabaseManager::updateItemDefinition(int id, const QVariantMap &data)
     return query.numRowsAffected() > 0;
 }
 
-int DatabaseManager::saveItemDefinition(int id, const QVariantMap &itemData, const QVariantMap &weaponData)
+int DatabaseManager::saveItemDefinition(int id, const QVariantMap &itemData,
+                                         const QVariantMap &weaponData,
+                                         const QVariantMap &armorData)
 {
     if (!m_db.transaction()) {
         reportError(QStringLiteral("saveItemDefinition failed: could not begin transaction: %1").arg(m_db.lastError().text()));
@@ -707,10 +709,17 @@ int DatabaseManager::saveItemDefinition(int id, const QVariantMap &itemData, con
         }
 
         const int itemType = itemData.value("item_type", -1).toInt();
-        if (itemType == static_cast<int>(Enums::ItemType::Weapon)) {
+        const int weaponT = static_cast<int>(Enums::ItemType::Weapon);
+        const int armorT  = static_cast<int>(Enums::ItemType::Armor);
+
+        if (itemType == weaponT) {
             if (!setWeaponDetails(savedId, weaponData)) return -1;
-        } else if (id > 0) {
-            if (!clearWeaponDetails(savedId)) return -1;
+        } else if (itemType == armorT) {
+            if (!setArmorDetails(savedId, armorData)) return -1;
+        }
+        if (id > 0) {
+            if (itemType != weaponT && !clearWeaponDetails(savedId)) return -1;
+            if (itemType != armorT  && !clearArmorDetails(savedId))  return -1;
         }
         return savedId;
     };
@@ -874,6 +883,90 @@ QVariantMap DatabaseManager::getArmorDetails(int itemId)
     for (int i=0; i<record.count(); i++)
         map.insert(record.fieldName(i), query.value(i));
     return map;
+}
+
+bool DatabaseManager::setArmorDetails(int itemId, const QVariantMap &data)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT item_type, source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", itemId);
+    if (!check.exec() || !check.next()) {
+        reportError(QStringLiteral("setArmorDetails failed: item %1 not found").arg(itemId));
+        return false;
+    }
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemType::Armor)) {
+        reportError(QStringLiteral("setArmorDetails failed: item %1 is not armor").arg(itemId));
+        return false;
+    }
+    if (check.value(1).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("setArmorDetails failed: cannot modify SRD items"));
+        return false;
+    }
+
+    bool ok = false;
+    const int acBase = data.value("ac_base").toInt(&ok);
+    if (!ok || acBase < 1) {
+        reportError(QStringLiteral("setArmorDetails failed: ac_base is required and must be >= 1"));
+        return false;
+    }
+
+    auto optionalInt = [&](const QString &key) -> QVariant {
+        const QVariant v = data.value(key);
+        if (!v.isValid() || v.isNull()) return QVariant();
+        bool parseOk = false;
+        const int n = v.toInt(&parseOk);
+        if (!parseOk) return QVariant();
+        return n;
+    };
+
+    QSqlQuery q(m_db);
+    q.prepare(R"(INSERT INTO armor_details
+        (item_id, category, ac_base, ac_dex_max, strength_required, stealth_disadvantage, don_minutes, doff_minutes)
+        VALUES (:item_id, :category, :ac_base, :ac_dex_max, :strength_required, :stealth_disadvantage, :don_minutes, :doff_minutes)
+        ON CONFLICT(item_id) DO UPDATE SET
+            category = excluded.category,
+            ac_base = excluded.ac_base,
+            ac_dex_max = excluded.ac_dex_max,
+            strength_required = excluded.strength_required,
+            stealth_disadvantage = excluded.stealth_disadvantage,
+            don_minutes = excluded.don_minutes,
+            doff_minutes = excluded.doff_minutes)");
+    q.bindValue(":item_id", itemId);
+    q.bindValue(":category", data.value("category").toInt());
+    q.bindValue(":ac_base", acBase);
+    q.bindValue(":ac_dex_max", optionalInt("ac_dex_max"));
+    q.bindValue(":strength_required", optionalInt("strength_required"));
+    q.bindValue(":stealth_disadvantage", data.value("stealth_disadvantage").toInt() ? 1 : 0);
+    q.bindValue(":don_minutes", optionalInt("don_minutes"));
+    q.bindValue(":doff_minutes", optionalInt("doff_minutes"));
+
+    if (!q.exec()) {
+        reportError(QStringLiteral("setArmorDetails failed: %1").arg(q.lastError().text()));
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::clearArmorDetails(int itemId)
+{
+    QSqlQuery check(m_db);
+    check.prepare("SELECT source FROM item_definitions WHERE id = :id");
+    check.bindValue(":id", itemId);
+    if (!check.exec() || !check.next())
+        return false;
+    if (check.value(0).toInt() != static_cast<int>(Enums::ItemSource::Homebrew)) {
+        reportError(QStringLiteral("clearArmorDetails failed: cannot modify SRD items"));
+        return false;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM armor_details WHERE item_id = :id");
+    q.bindValue(":id", itemId);
+    if (!q.exec()) {
+        reportError(QStringLiteral("clearArmorDetails failed: %1").arg(q.lastError().text()));
+        return false;
+    }
+    return true;
 }
 
 int DatabaseManager::addInventoryItem(int characterId, int itemId, int quantity, int parentId)
