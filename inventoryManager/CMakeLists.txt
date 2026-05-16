@@ -20,6 +20,7 @@ qt_add_qml_module(appinventoryManager
         ArmorDetailsForm.qml
         ItemDefinitionViewDialog.qml
         ItemDefinitionEditDialog.qml
+        CharacterDetailPage.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp
