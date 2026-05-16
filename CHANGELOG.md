@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-05-16
+- Weapon edit subform (category, range, damage, properties grid, mastery, ammunition) reorganized as a reusable piece within the item edit dialog
+- Armor edit subform (category, base AC, Dex cap, strength, stealth, don/doff) reorganized the same way
+- Item view dialog, item edit dialog, and character detail page each reorganized to be self-contained
+
 ### 2026-05-15
 - Item view dialog displays armor-specific fields (category, AC formula formatted per category, strength required, stealth disadvantage, don/doff times) when present
 - Homebrew armor edit gains an armor section (category, base AC, Dex modifier cap, strength required, stealth, don/doff minutes); Shield collapses to category + AC bonus only; switching an item's type cleans up the prior detail row
