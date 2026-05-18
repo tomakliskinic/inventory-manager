@@ -26,6 +26,7 @@ public:
     Q_INVOKABLE bool exportAllToFile(const QUrl &fileUrl);
     Q_INVOKABLE bool exportCharacterToFile(int characterId, const QUrl &fileUrl);
     Q_INVOKABLE int importFromFile(const QUrl &fileUrl);
+    Q_INVOKABLE bool exportHomebrewPack(const QUrl &fileUrl);
 
     Q_INVOKABLE QStringList creatureSizeNames() const;
 

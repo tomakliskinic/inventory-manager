@@ -332,6 +332,86 @@ int DatabaseManager::importFromFile(const QUrl &fileUrl)
     return imported;
 }
 
+bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl)
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, name, item_type, weight_lb, cost, description, "
+              "is_container, container_weight_capacity, fixed_weight, "
+              "rarity, requires_attunement "
+              "FROM item_definitions WHERE source = :s ORDER BY name");
+    q.bindValue(":s", static_cast<int>(Enums::ItemSource::Homebrew));
+    if (!q.exec()) {
+        reportError(QStringLiteral("exportHomebrewPack failed: %1").arg(q.lastError().text()));
+        return false;
+    }
+
+    auto putOptionalString = [](QJsonObject &obj, const QString &key, const QVariant &v) {
+        if (v.isValid() && !v.isNull() && !v.toString().isEmpty())
+            obj[key] = v.toString();
+    };
+    auto putOptionalInt = [](QJsonObject &obj, const QString &key, const QVariant &v) {
+        if (v.isValid() && !v.isNull())
+            obj[key] = v.toInt();
+    };
+    auto putOptionalDouble = [](QJsonObject &obj, const QString &key, const QVariant &v) {
+        if (v.isValid() && !v.isNull())
+            obj[key] = v.toDouble();
+    };
+
+    QJsonArray itemsArray;
+    while (q.next()) {
+        const int id = q.value("id").toInt();
+        const int itemType = q.value("item_type").toInt();
+
+        QJsonObject item;
+        item["name"] = q.value("name").toString();
+        item["item_type"] = itemType;
+        item["weight_lb"] = q.value("weight_lb").toDouble();
+        putOptionalString(item, "cost", q.value("cost"));
+        putOptionalString(item, "description", q.value("description"));
+        item["is_container"] = q.value("is_container").toInt();
+        putOptionalDouble(item, "container_weight_capacity", q.value("container_weight_capacity"));
+        putOptionalDouble(item, "fixed_weight", q.value("fixed_weight"));
+        putOptionalInt(item, "rarity", q.value("rarity"));
+        item["requires_attunement"] = q.value("requires_attunement").toInt();
+
+        if (itemType == static_cast<int>(Enums::ItemType::Weapon)) {
+            const QVariantMap wd = getWeaponDetails(id);
+            if (!wd.isEmpty()) {
+                QJsonObject wj;
+                wj["category"] = wd.value("category").toInt();
+                wj["range_type"] = wd.value("range_type").toInt();
+                wj["damage_dice"] = wd.value("damage_dice").toString();
+                wj["damage_type"] = wd.value("damage_type").toInt();
+                wj["properties"] = wd.value("properties").toString();
+                putOptionalString(wj, "mastery", wd.value("mastery"));
+                putOptionalString(wj, "ammunition_type", wd.value("ammunition_type"));
+                item["weapon_details"] = wj;
+            }
+        } else if (itemType == static_cast<int>(Enums::ItemType::Armor)) {
+            const QVariantMap ad = getArmorDetails(id);
+            if (!ad.isEmpty()) {
+                QJsonObject aj;
+                aj["category"] = ad.value("category").toInt();
+                aj["ac_base"] = ad.value("ac_base").toInt();
+                putOptionalInt(aj, "ac_dex_max", ad.value("ac_dex_max"));
+                putOptionalInt(aj, "strength_required", ad.value("strength_required"));
+                aj["stealth_disadvantage"] = ad.value("stealth_disadvantage").toInt();
+                putOptionalInt(aj, "don_minutes", ad.value("don_minutes"));
+                putOptionalInt(aj, "doff_minutes", ad.value("doff_minutes"));
+                item["armor_details"] = aj;
+            }
+        }
+
+        itemsArray.append(item);
+    }
+
+    QJsonObject root;
+    root["items"] = itemsArray;
+
+    return writeJsonObject(root, fileUrl.toLocalFile());
+}
+
 QStringList DatabaseManager::creatureSizeNames() const
 {
     QStringList names;

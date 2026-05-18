@@ -218,6 +218,10 @@ ApplicationWindow {
                         font.pixelSize: 18
                     }
                     ToolButton {
+                        text: qsTr("Export")
+                        onClicked: homebrewExportDialog.open()
+                    }
+                    ToolButton {
                         text: qsTr("+ Add")
                         onClicked: itemDefinitionEditDialog.openCreate()
                     }
@@ -1146,6 +1150,21 @@ ApplicationWindow {
                 refresh()
                 notifyInfo(qsTr("Imported %1 character(s).").arg(count))
             }
+        }
+    }
+
+    FileDialog {
+        id: homebrewExportDialog
+        title: qsTr("Export Homebrew Pack")
+        fileMode: FileDialog.SaveFile
+        nameFilters: [qsTr("JSON files (*.json)")]
+        defaultSuffix: "json"
+
+        onAccepted: {
+            if (DB.exportHomebrewPack(selectedFile))
+                notifyInfo(qsTr("Exported homebrew pack to %1").arg(selectedFile))
+            else
+                notifyError(DB.lastError() || qsTr("Export failed."))
         }
     }
 
