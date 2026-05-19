@@ -34,9 +34,9 @@ This application will allow players to create and manage characters and their in
 
 ## Project Status
 
-Active development. The core inventory management loop is functional: character CRUD, hierarchical inventory with nested containers, item add/edit/move/remove with stacking for fungibles, coin tracking, search/filter/sort, live weight/capacity calculations against D&D 5E carry rules, JSON export/import of characters (single or all), and a browseable item catalog with full CRUD on Homebrew items including weapon and armor type-specific details with SRD-anchored validation. Items are picked from the seeded SRD catalog plus any Homebrew entries you add.
+Active development. The core inventory management loop is functional: character CRUD, hierarchical inventory with nested containers, item add/edit/move/remove with stacking for fungibles, coin tracking, search/filter/sort, live weight/capacity calculations against D&D 5E carry rules, JSON export/import of characters (single or all), a browseable item catalog with full CRUD on Homebrew items including weapon and armor type-specific details with SRD-anchored validation, and JSON export/import of Homebrew item packs. Items are picked from the seeded SRD catalog plus any Homebrew entries you add.
 
-Still planned: Homebrew item-pack export/import, and Android packaging.
+Still planned: Android packaging.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 

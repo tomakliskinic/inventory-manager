@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2026-05-19
+- Item catalog gains an Export button that writes all homebrew items to a JSON file, with weapon and armor type-specific details inlined per item
+- Item catalog gains an Import button; items whose names already exist in the catalog are skipped with a banner listing them, and the rest are added as homebrew
+
 ### 2026-05-16
 - Weapon edit subform (category, range, damage, properties grid, mastery, ammunition) reorganized as a reusable piece within the item edit dialog
 - Armor edit subform (category, base AC, Dex cap, strength, stealth, don/doff) reorganized the same way
