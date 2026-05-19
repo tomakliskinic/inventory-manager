@@ -412,6 +412,137 @@ bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl)
     return writeJsonObject(root, fileUrl.toLocalFile());
 }
 
+QStringList DatabaseManager::lastSkippedItems() const
+{
+    return m_lastSkippedItems;
+}
+
+int DatabaseManager::importHomebrewPack(const QUrl &fileUrl)
+{
+    m_lastSkippedItems.clear();
+
+    const QString path = fileUrl.toLocalFile();
+    if (path.isEmpty()) {
+        reportError(QStringLiteral("importHomebrewPack failed: invalid file path"));
+        return -1;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        reportError(QStringLiteral("importHomebrewPack failed: cannot read %1").arg(path));
+        return -1;
+    }
+    const QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError) {
+        reportError(QStringLiteral("importHomebrewPack failed: %1").arg(err.errorString()));
+        return -1;
+    }
+    if (!doc.isObject()) {
+        reportError(QStringLiteral("importHomebrewPack failed: root is not a JSON object"));
+        return -1;
+    }
+    const QJsonObject root = doc.object();
+    if (!root.contains("items") || !root["items"].isArray()) {
+        reportError(QStringLiteral("importHomebrewPack failed: missing 'items' array"));
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        reportError(QStringLiteral("importHomebrewPack failed: could not begin transaction"));
+        return -1;
+    }
+
+    QSqlQuery existsQ(m_db);
+    existsQ.prepare("SELECT 1 FROM item_definitions WHERE name = :n");
+
+    int imported = 0;
+    const QJsonArray items = root["items"].toArray();
+    for (const QJsonValue &iv : items) {
+        if (!iv.isObject()) continue;
+        const QJsonObject ij = iv.toObject();
+        const QString name = ij.value("name").toString().trimmed();
+        if (name.isEmpty()) continue;
+
+        existsQ.bindValue(":n", name);
+        if (!existsQ.exec()) {
+            reportError(QStringLiteral("importHomebrewPack failed: %1").arg(existsQ.lastError().text()));
+            m_db.rollback();
+            return -1;
+        }
+        if (existsQ.next()) {
+            m_lastSkippedItems << name;
+            existsQ.finish();
+            continue;
+        }
+        existsQ.finish();
+
+        QVariantMap itemData;
+        itemData["name"] = name;
+        itemData["item_type"] = ij.value("item_type").toInt();
+        itemData["weight_lb"] = ij.value("weight_lb").toDouble();
+        if (ij.contains("cost"))        itemData["cost"]        = ij.value("cost").toString();
+        if (ij.contains("description")) itemData["description"] = ij.value("description").toString();
+        itemData["is_container"] = ij.value("is_container").toInt();
+        if (ij.contains("container_weight_capacity"))
+            itemData["container_weight_capacity"] = ij.value("container_weight_capacity").toDouble();
+        if (ij.contains("fixed_weight"))
+            itemData["fixed_weight"] = ij.value("fixed_weight").toDouble();
+        if (ij.contains("rarity"))
+            itemData["rarity"] = ij.value("rarity").toInt();
+        itemData["requires_attunement"] = ij.value("requires_attunement").toInt();
+
+        const int newId = createItemDefinition(itemData);
+        if (newId < 0) {
+            m_db.rollback();
+            return -1;
+        }
+
+        const int itemType = itemData.value("item_type").toInt();
+        if (itemType == static_cast<int>(Enums::ItemType::Weapon) && ij.contains("weapon_details")) {
+            const QJsonObject wj = ij.value("weapon_details").toObject();
+            QVariantMap wd;
+            wd["category"]    = wj.value("category").toInt();
+            wd["range_type"]  = wj.value("range_type").toInt();
+            wd["damage_dice"] = wj.value("damage_dice").toString();
+            wd["damage_type"] = wj.value("damage_type").toInt();
+            wd["properties"]  = wj.value("properties").toString("[]");
+            if (wj.contains("mastery"))         wd["mastery"]         = wj.value("mastery").toString();
+            if (wj.contains("ammunition_type")) wd["ammunition_type"] = wj.value("ammunition_type").toString();
+            if (!setWeaponDetails(newId, wd)) {
+                m_db.rollback();
+                return -1;
+            }
+        } else if (itemType == static_cast<int>(Enums::ItemType::Armor) && ij.contains("armor_details")) {
+            const QJsonObject aj = ij.value("armor_details").toObject();
+            QVariantMap ad;
+            ad["category"] = aj.value("category").toInt();
+            ad["ac_base"]  = aj.value("ac_base").toInt();
+            if (aj.contains("ac_dex_max"))         ad["ac_dex_max"]         = aj.value("ac_dex_max").toInt();
+            if (aj.contains("strength_required"))  ad["strength_required"]  = aj.value("strength_required").toInt();
+            ad["stealth_disadvantage"] = aj.value("stealth_disadvantage").toInt();
+            if (aj.contains("don_minutes"))   ad["don_minutes"]   = aj.value("don_minutes").toInt();
+            if (aj.contains("doff_minutes"))  ad["doff_minutes"]  = aj.value("doff_minutes").toInt();
+            if (!setArmorDetails(newId, ad)) {
+                m_db.rollback();
+                return -1;
+            }
+        }
+
+        ++imported;
+    }
+
+    if (!m_db.commit()) {
+        reportError(QStringLiteral("importHomebrewPack failed: commit failed: %1").arg(m_db.lastError().text()));
+        m_db.rollback();
+        return -1;
+    }
+    return imported;
+}
+
 QStringList DatabaseManager::creatureSizeNames() const
 {
     QStringList names;

@@ -218,6 +218,10 @@ ApplicationWindow {
                         font.pixelSize: 18
                     }
                     ToolButton {
+                        text: qsTr("Import")
+                        onClicked: homebrewImportDialog.open()
+                    }
+                    ToolButton {
                         text: qsTr("Export")
                         onClicked: homebrewExportDialog.open()
                     }
@@ -1165,6 +1169,29 @@ ApplicationWindow {
                 notifyInfo(qsTr("Exported homebrew pack to %1").arg(selectedFile))
             else
                 notifyError(DB.lastError() || qsTr("Export failed."))
+        }
+    }
+
+    FileDialog {
+        id: homebrewImportDialog
+        title: qsTr("Import Homebrew Pack")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("JSON files (*.json)")]
+
+        onAccepted: {
+            const count = DB.importHomebrewPack(selectedFile)
+            if (count < 0) {
+                notifyError(DB.lastError() || qsTr("Import failed."))
+                return
+            }
+            const skipped = DB.lastSkippedItems()
+            if (stack.currentItem && stack.currentItem.refresh)
+                stack.currentItem.refresh()
+            if (skipped.length === 0)
+                notifyInfo(qsTr("Imported %1 item(s).").arg(count))
+            else
+                notifyInfo(qsTr("Imported %1, skipped %2 (already exist): %3")
+                    .arg(count).arg(skipped.length).arg(skipped.join(", ")))
         }
     }
 

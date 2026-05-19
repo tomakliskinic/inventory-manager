@@ -27,6 +27,8 @@ public:
     Q_INVOKABLE bool exportCharacterToFile(int characterId, const QUrl &fileUrl);
     Q_INVOKABLE int importFromFile(const QUrl &fileUrl);
     Q_INVOKABLE bool exportHomebrewPack(const QUrl &fileUrl);
+    Q_INVOKABLE int importHomebrewPack(const QUrl &fileUrl);
+    Q_INVOKABLE QStringList lastSkippedItems() const;
 
     Q_INVOKABLE QStringList creatureSizeNames() const;
 
@@ -85,6 +87,7 @@ private:
     QSqlDatabase m_db;
     bool m_initialized = false;
     QString m_lastError;
+    QStringList m_lastSkippedItems;
 };
 
 #endif // DATABASEMANAGER_H
