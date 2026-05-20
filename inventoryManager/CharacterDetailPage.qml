@@ -14,11 +14,13 @@ Page {
     property var inventoryItems: []
 
     property string searchText: ""
+    property bool searchInDescription: false
     property int filterType: -1
+    property int filterSource: -1
     property int sortField: 0
     property bool sortAscending: true
 
-    readonly property bool isFiltering: searchText !== "" || filterType >= 0
+    readonly property bool isFiltering: searchText !== "" || filterType >= 0 || filterSource >= 0
 
     signal back()
     signal editCharacterRequested(var character)
@@ -41,8 +43,10 @@ Page {
                     || (item.item_name || "").toLowerCase().includes(searchText)
                     || (item.custom_name || "").toLowerCase().includes(searchText)
                     || (item.notes || "").toLowerCase().includes(searchText)
+                    || (searchInDescription && (item.item_description || "").toLowerCase().includes(searchText))
                 const matchesType = filterType < 0 || item.item_type === filterType
-                if (matchesSearch && matchesType)
+                const matchesSource = filterSource < 0 || item.item_source === filterSource
+                if (matchesSearch && matchesType && matchesSource)
                     matches.add(item.id)
             }
             const visible = new Set(matches)
@@ -309,8 +313,19 @@ Page {
                             placeholderText: qsTr("Search…")
                             onTextChanged: root.searchText = text.trim().toLowerCase()
                         }
+                        CheckBox {
+                            text: qsTr("Description")
+                            checked: root.searchInDescription
+                            onToggled: root.searchInDescription = checked
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.inventoryItems.length > 0
+
                         ComboBox {
-                            Layout.preferredWidth: 130
+                            Layout.fillWidth: true
                             textRole: "name"
                             valueRole: "id"
                             model: [
@@ -324,7 +339,24 @@ Page {
                             onActivated: root.filterType = currentValue
                         }
                         ComboBox {
-                            Layout.preferredWidth: 140
+                            Layout.fillWidth: true
+                            textRole: "name"
+                            valueRole: "id"
+                            model: [
+                                { id: -1, name: qsTr("All sources") },
+                                { id: Enums.ItemSource.SRD, name: qsTr("SRD") },
+                                { id: Enums.ItemSource.Homebrew, name: qsTr("Homebrew") }
+                            ]
+                            onActivated: root.filterSource = currentValue
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.inventoryItems.length > 0
+
+                        ComboBox {
+                            Layout.fillWidth: true
                             textRole: "name"
                             valueRole: "id"
                             model: [
@@ -392,7 +424,7 @@ Page {
                                 horizontalAlignment: Text.AlignRight
                             }
                             ToolButton {
-                                text: "⋮"
+                                text: "…"
                                 font.pixelSize: 16
                                 onClicked: {
                                     inventoryRowMenu.item = modelData

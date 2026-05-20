@@ -10,10 +10,6 @@
 
 int main(int argc, char *argv[])
 {
-#if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
-    qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
-#endif
-
     QGuiApplication app(argc, argv);
     QQuickStyle::setStyle("Material");
 

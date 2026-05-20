@@ -24,6 +24,13 @@ ApplicationWindow {
         characters = DB.getAllCharacters()
     }
 
+    onClosing: function(close) {
+        if (Qt.platform.os === "android" && stack.depth > 1) {
+            stack.pop()
+            close.accepted = false
+        }
+    }
+
     function refreshCurrentDetail() {
         if (stack.currentItem && stack.currentItem.refresh)
             stack.currentItem.refresh()
@@ -117,7 +124,7 @@ ApplicationWindow {
                             elide: Text.ElideRight
                         }
                         ToolButton {
-                            text: "⋮"
+                            text: "…"
                             font.pixelSize: 18
                             onClicked: {
                                 rowMenu.character = modelData
@@ -177,6 +184,8 @@ ApplicationWindow {
             property int filterType: -1
             property int filterSource: -1
             property bool searchInDescription: false
+            property int sortField: 0
+            property bool sortAscending: true
 
             readonly property var filteredItems: {
                 let result = allItems
@@ -193,6 +202,18 @@ ApplicationWindow {
                     result = result.filter(i => i.item_type === filterType)
                 if (filterSource >= 0)
                     result = result.filter(i => i.source === filterSource)
+                if (sortField > 0) {
+                    let cmp
+                    if (sortField === 1)
+                        cmp = (a, b) => (a.name || "").localeCompare(b.name || "")
+                    else
+                        cmp = (a, b) => (a.weight_lb || 0) - (b.weight_lb || 0)
+                    if (!sortAscending) {
+                        const inner = cmp
+                        cmp = (a, b) => -inner(a, b)
+                    }
+                    result = result.slice().sort(cmp)
+                }
                 return result
             }
 
@@ -250,8 +271,13 @@ ApplicationWindow {
                         checked: catalogPage.searchInDescription
                         onToggled: catalogPage.searchInDescription = checked
                     }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
                     ComboBox {
-                        Layout.preferredWidth: 130
+                        Layout.fillWidth: true
                         textRole: "name"
                         valueRole: "id"
                         model: [
@@ -265,7 +291,7 @@ ApplicationWindow {
                         onActivated: catalogPage.filterType = currentValue
                     }
                     ComboBox {
-                        Layout.preferredWidth: 130
+                        Layout.fillWidth: true
                         textRole: "name"
                         valueRole: "id"
                         model: [
@@ -274,6 +300,30 @@ ApplicationWindow {
                             { id: Enums.ItemSource.Homebrew, name: qsTr("Homebrew") }
                         ]
                         onActivated: catalogPage.filterSource = currentValue
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    ComboBox {
+                        Layout.fillWidth: true
+                        textRole: "name"
+                        valueRole: "id"
+                        model: [
+                            { id: 0, name: qsTr("Default order") },
+                            { id: 1, name: qsTr("Name") },
+                            { id: 2, name: qsTr("Weight") }
+                        ]
+                        onActivated: {
+                            catalogPage.sortField = currentValue
+                            catalogPage.sortAscending = currentValue === 1
+                        }
+                    }
+                    ToolButton {
+                        text: catalogPage.sortAscending ? "↑" : "↓"
+                        enabled: catalogPage.sortField > 0
+                        onClicked: catalogPage.sortAscending = !catalogPage.sortAscending
                     }
                 }
 
@@ -321,7 +371,7 @@ ApplicationWindow {
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             ToolButton {
-                                text: "⋮"
+                                text: "…"
                                 font.pixelSize: 16
                                 visible: modelData.source === Enums.ItemSource.Homebrew
                                 onClicked: {
@@ -388,7 +438,7 @@ ApplicationWindow {
         title: editingId === -1 ? qsTr("New Character") : qsTr("Edit Character")
         modal: true
         anchors.centerIn: parent
-        width: 480
+        width: Math.min(parent.width - 32, 480)
         height: Math.min(window.height - 60, 560)
         standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -539,7 +589,7 @@ ApplicationWindow {
         title: qsTr("Delete Character?")
         modal: true
         anchors.centerIn: parent
-        width: 360
+        width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Yes | Dialog.No
 
         Label {
@@ -571,7 +621,7 @@ ApplicationWindow {
         title: qsTr("Edit Coins")
         modal: true
         anchors.centerIn: parent
-        width: 360
+        width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         GridLayout {
@@ -642,7 +692,7 @@ ApplicationWindow {
         title: qsTr("Add Item")
         modal: true
         anchors.centerIn: parent
-        width: 460
+        width: Math.min(parent.width - 32, 460)
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         GridLayout {
@@ -757,7 +807,7 @@ ApplicationWindow {
         title: qsTr("Edit Item")
         modal: true
         anchors.centerIn: parent
-        width: 480
+        width: Math.min(parent.width - 32, 480)
         height: Math.min(window.height - 60, 460)
         standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -857,7 +907,7 @@ ApplicationWindow {
         title: qsTr("Remove Item?")
         modal: true
         anchors.centerIn: parent
-        width: 360
+        width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Yes | Dialog.No
 
         Label {
@@ -889,7 +939,7 @@ ApplicationWindow {
         title: qsTr("Remove Container?")
         modal: true
         anchors.centerIn: parent
-        width: 460
+        width: Math.min(parent.width - 32, 460)
 
         function openFor(itm, charId) {
             item = itm
@@ -1001,7 +1051,7 @@ ApplicationWindow {
         title: qsTr("Move Item")
         modal: true
         anchors.centerIn: parent
-        width: 420
+        width: Math.min(parent.width - 32, 420)
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         GridLayout {
@@ -1094,7 +1144,7 @@ ApplicationWindow {
         title: qsTr("Delete Item?")
         modal: true
         anchors.centerIn: parent
-        width: 380
+        width: Math.min(parent.width - 32, 380)
         standardButtons: Dialog.Yes | Dialog.No
 
         Label {

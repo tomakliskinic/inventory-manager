@@ -31,7 +31,7 @@ Dialog {
     title: editingId === -1 ? qsTr("New Item") : qsTr("Edit Item")
     modal: true
     anchors.centerIn: parent
-    width: 500
+    width: Math.min((parent ? parent.width : 500) - 32, 500)
     height: Math.min((parent ? parent.height : 620) - 60, 620)
     standardButtons: Dialog.Ok | Dialog.Cancel
 

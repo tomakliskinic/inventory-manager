@@ -1494,6 +1494,7 @@ QVariantList DatabaseManager::getInventoryTree(int characterId)
     query.prepare(R"(WITH RECURSIVE tree AS (
         SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes, ii.created_at,
             idef.name AS item_name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight,
+            idef.source AS item_source, idef.description AS item_description,
             0 AS depth, printf('%020d', ii.id) AS path
         FROM inventory_items ii
         JOIN item_definitions idef ON ii.item_id = idef.id
@@ -1501,6 +1502,7 @@ QVariantList DatabaseManager::getInventoryTree(int characterId)
         UNION ALL
         SELECT ii.id, ii.item_id, ii.quantity, ii.parent_inventory_item_id, ii.is_equipped, ii.custom_name, ii.notes, ii.created_at,
             idef.name, idef.item_type, idef.weight_lb, idef.is_container, idef.container_weight_capacity, idef.fixed_weight,
+            idef.source, idef.description,
             t.depth + 1, t.path || '/' || printf('%020d', ii.id)
         FROM inventory_items ii
         JOIN item_definitions idef ON ii.item_id = idef.id

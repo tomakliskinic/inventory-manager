@@ -25,7 +25,7 @@ Dialog {
     title: item ? item.name : ""
     modal: true
     anchors.centerIn: parent
-    width: 480
+    width: Math.min((parent ? parent.width : 480) - 32, 480)
     height: Math.min((parent ? parent.height : 600) - 60, 600)
     standardButtons: Dialog.Close
 
