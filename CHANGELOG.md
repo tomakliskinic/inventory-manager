@@ -1,6 +1,11 @@
 ## Changelog
 
 ### 2026-05-21
+- Sort by Cost in the item catalog and in a character's inventory; cost text is parsed into copper pieces so mixed currencies compare correctly
+- Character detail page shows total inventory value, broken into the largest denominations (PP, GP, SP, CP)
+- Weight and Cost sort on the inventory now use container aggregates, so a backpack full of heavy gear outranks a single greataxe
+- Container weight column shows the aggregate in parens next to the container's own weight when the contents add weight
+- Fixed-weight containers (Bag of Holding, Handy Haversack) still report only their own weight, matching the carry-weight rule
 - Back gesture on Android or Esc on desktop from the character list opens an exit prompt; Yes exits the app, No stays
 - Containers in a character's inventory start collapsed; tap a container row to expand or collapse it
 - Active search or filter reveals matching items inside collapsed containers via their ancestor chain
