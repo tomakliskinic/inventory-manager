@@ -6,6 +6,9 @@
 - Weight and Cost sort on the inventory now use container aggregates, so a backpack full of heavy gear outranks a single greataxe
 - Container weight column shows the aggregate in parens next to the container's own weight when the contents add weight
 - Fixed-weight containers (Bag of Holding, Handy Haversack) still report only their own weight, matching the carry-weight rule
+- Header toolbars collapse secondary actions into a `…` overflow menu on narrow screens, so phone headers stop clipping
+- Character list title now actually centered on the toolbar instead of drifting left
+- Linux desktop build verified on Linux Mint 22.1 with Qt 6.11
 - Back gesture on Android or Esc on desktop from the character list opens an exit prompt; Yes exits the app, No stays
 - Containers in a character's inventory start collapsed; tap a container row to expand or collapse it
 - Active search or filter reveals matching items inside collapsed containers via their ancestor chain
