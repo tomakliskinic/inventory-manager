@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Dialogs
 import QtQuick.Layouts
-import QtQuick.VirtualKeyboard
 import inventoryManager
 
 ApplicationWindow {
@@ -61,7 +60,6 @@ ApplicationWindow {
     StackView {
         id: stack
         anchors.fill: parent
-        anchors.bottomMargin: inputPanel.active ? inputPanel.height : 0
         initialItem: listPageComponent
     }
 
@@ -1312,27 +1310,4 @@ ApplicationWindow {
         onTriggered: errorBanner.close()
     }
 
-    InputPanel {
-        id: inputPanel
-        z: 99
-        y: window.height
-        width: window.width
-
-        states: State {
-            name: "visible"
-            when: inputPanel.active
-            PropertyChanges {
-                inputPanel.y: window.height - inputPanel.height
-            }
-        }
-        transitions: Transition {
-            from: ""
-            to: "visible"
-            reversible: true
-            NumberAnimation {
-                properties: "y"
-                easing.type: Easing.InOutQuad
-            }
-        }
-    }
 }
