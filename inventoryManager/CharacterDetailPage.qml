@@ -19,8 +19,30 @@ Page {
     property int filterSource: -1
     property int sortField: 0
     property bool sortAscending: true
+    property var expandedContainers: ({})
 
     readonly property bool isFiltering: searchText !== "" || filterType >= 0 || filterSource >= 0
+
+    function isContainerExpanded(id) {
+        return expandedContainers[id] === true
+    }
+
+    function toggleContainerExpansion(id) {
+        const next = Object.assign({}, expandedContainers)
+        if (next[id]) delete next[id]
+        else next[id] = true
+        expandedContainers = next
+    }
+
+    function isAncestorChainExpanded(item) {
+        let parentId = item.parent_inventory_item_id
+        while (parentId) {
+            if (!isContainerExpanded(parentId)) return false
+            const parent = inventoryItems.find(i => i.id === parentId)
+            parentId = parent ? parent.parent_inventory_item_id : null
+        }
+        return true
+    }
 
     signal back()
     signal editCharacterRequested(var character)
@@ -60,6 +82,8 @@ Page {
                 }
             }
             result = inventoryItems.filter(i => visible.has(i.id))
+        } else {
+            result = result.filter(i => isAncestorChainExpanded(i))
         }
 
         if (sortField > 0) {
@@ -397,38 +421,55 @@ Page {
 
                     Repeater {
                         model: root.filteredItems
-                        delegate: RowLayout {
+                        delegate: ItemDelegate {
+                            id: rowDelegate
                             Layout.fillWidth: true
+                            padding: 4
+                            hoverEnabled: modelData.is_container
+                            onClicked: {
+                                if (modelData.is_container)
+                                    root.toggleContainerExpansion(modelData.id)
+                            }
+                            background: Rectangle {
+                                color: {
+                                    if (!modelData.is_container) return "transparent"
+                                    if (rowDelegate.pressed) return Qt.rgba(0, 0, 0, 0.12)
+                                    if (rowDelegate.hovered) return Qt.rgba(0, 0, 0, 0.06)
+                                    return "transparent"
+                                }
+                            }
 
-                            Item {
-                                Layout.preferredWidth: modelData.depth * 20
-                                visible: modelData.depth > 0
-                            }
-                            Label {
-                                text: (modelData.is_container ? "📦 " : "")
-                                      + (modelData.custom_name || modelData.item_name)
-                                      + (modelData.is_equipped ? " ✓" : "")
-                                Layout.fillWidth: true
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                text: qsTr("×%1").arg(modelData.quantity)
-                                opacity: 0.7
-                                Layout.preferredWidth: 40
-                                horizontalAlignment: Text.AlignRight
-                            }
-                            Label {
-                                text: qsTr("%1 lb").arg((modelData.weight_lb * modelData.quantity).toFixed(1))
-                                opacity: 0.7
-                                Layout.preferredWidth: 60
-                                horizontalAlignment: Text.AlignRight
-                            }
-                            ToolButton {
-                                text: "…"
-                                font.pixelSize: 16
-                                onClicked: {
-                                    inventoryRowMenu.item = modelData
-                                    inventoryRowMenu.popup()
+                            contentItem: RowLayout {
+                                Item {
+                                    Layout.preferredWidth: modelData.depth * 20
+                                    visible: modelData.depth > 0
+                                }
+                                Label {
+                                    text: (modelData.is_container ? "📦 " : "")
+                                          + (modelData.custom_name || modelData.item_name)
+                                          + (modelData.is_equipped ? " ✓" : "")
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                }
+                                Label {
+                                    text: qsTr("×%1").arg(modelData.quantity)
+                                    opacity: 0.7
+                                    Layout.preferredWidth: 40
+                                    horizontalAlignment: Text.AlignRight
+                                }
+                                Label {
+                                    text: qsTr("%1 lb").arg((modelData.weight_lb * modelData.quantity).toFixed(1))
+                                    opacity: 0.7
+                                    Layout.preferredWidth: 60
+                                    horizontalAlignment: Text.AlignRight
+                                }
+                                ToolButton {
+                                    text: "…"
+                                    font.pixelSize: 16
+                                    onClicked: {
+                                        inventoryRowMenu.item = modelData
+                                        inventoryRowMenu.popup()
+                                    }
                                 }
                             }
                         }

@@ -17,6 +17,7 @@ ApplicationWindow {
     Material.accent: Material.Indigo
 
     property var characters: []
+    property bool confirmedQuit: false
 
     Component.onCompleted: refresh()
 
@@ -25,8 +26,15 @@ ApplicationWindow {
     }
 
     onClosing: function(close) {
-        if (Qt.platform.os === "android" && stack.depth > 1) {
+        if (Qt.platform.os !== "android") return
+        if (confirmedQuit) return
+        if (stack.depth > 1) {
             stack.pop()
+            close.accepted = false
+            return
+        }
+        if (!quitConfirm.opened) {
+            quitConfirm.open()
             close.accepted = false
         }
     }
@@ -59,8 +67,7 @@ ApplicationWindow {
 
     Shortcut {
         sequence: "Escape"
-        enabled: stack.depth > 1
-                 && !characterDialog.opened
+        enabled: !characterDialog.opened
                  && !deleteConfirm.opened
                  && !coinsDialog.opened
                  && !addItemDialog.opened
@@ -71,7 +78,11 @@ ApplicationWindow {
                  && !itemDefinitionViewDialog.opened
                  && !itemDefinitionEditDialog.opened
                  && !catalogDeleteConfirm.opened
-        onActivated: stack.pop()
+                 && !quitConfirm.opened
+        onActivated: {
+            if (stack.depth > 1) stack.pop()
+            else quitConfirm.open()
+        }
     }
 
     Component {
@@ -612,6 +623,26 @@ ApplicationWindow {
             character = null
         }
         onRejected: character = null
+    }
+
+    Dialog {
+        id: quitConfirm
+        title: qsTr("Exit?")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 32, 360)
+        standardButtons: Dialog.Yes | Dialog.No
+
+        Label {
+            anchors.fill: parent
+            text: qsTr("Exit Inventory Manager?")
+            wrapMode: Text.Wrap
+        }
+
+        onAccepted: {
+            window.confirmedQuit = true
+            Qt.quit()
+        }
     }
 
     Dialog {
