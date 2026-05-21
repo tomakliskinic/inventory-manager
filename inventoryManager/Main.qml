@@ -196,6 +196,16 @@ ApplicationWindow {
             property int sortField: 0
             property bool sortAscending: true
 
+            function costInCopper(text) {
+                if (!text) return Number.POSITIVE_INFINITY
+                const m = String(text).match(/^\s*([\d,]+)\s*([A-Z]{2})/)
+                if (!m) return Number.POSITIVE_INFINITY
+                const amount = parseInt(m[1].replace(/,/g, ""), 10)
+                if (isNaN(amount)) return Number.POSITIVE_INFINITY
+                const mult = { CP: 1, SP: 10, EP: 50, GP: 100, PP: 1000 }[m[2]]
+                return mult === undefined ? Number.POSITIVE_INFINITY : amount * mult
+            }
+
             readonly property var filteredItems: {
                 let result = allItems
                 if (searchText) {
@@ -215,8 +225,10 @@ ApplicationWindow {
                     let cmp
                     if (sortField === 1)
                         cmp = (a, b) => (a.name || "").localeCompare(b.name || "")
-                    else
+                    else if (sortField === 2)
                         cmp = (a, b) => (a.weight_lb || 0) - (b.weight_lb || 0)
+                    else
+                        cmp = (a, b) => costInCopper(a.cost) - costInCopper(b.cost)
                     if (!sortAscending) {
                         const inner = cmp
                         cmp = (a, b) => -inner(a, b)
@@ -322,7 +334,8 @@ ApplicationWindow {
                         model: [
                             { id: 0, name: qsTr("Default order") },
                             { id: 1, name: qsTr("Name") },
-                            { id: 2, name: qsTr("Weight") }
+                            { id: 2, name: qsTr("Weight") },
+                            { id: 3, name: qsTr("Cost") }
                         ]
                         onActivated: {
                             catalogPage.sortField = currentValue

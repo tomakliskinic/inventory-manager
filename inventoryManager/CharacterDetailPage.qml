@@ -44,6 +44,79 @@ Page {
         return true
     }
 
+    function costInCopper(text) {
+        if (!text) return Number.POSITIVE_INFINITY
+        const m = String(text).match(/^\s*([\d,]+)\s*([A-Z]{2})/)
+        if (!m) return Number.POSITIVE_INFINITY
+        const amount = parseInt(m[1].replace(/,/g, ""), 10)
+        if (isNaN(amount)) return Number.POSITIVE_INFINITY
+        const mult = { CP: 1, SP: 10, EP: 50, GP: 100, PP: 1000 }[m[2]]
+        return mult === undefined ? Number.POSITIVE_INFINITY : amount * mult
+    }
+
+    function formatCopper(cp) {
+        if (cp <= 0) return qsTr("—")
+        const parts = []
+        let rem = cp
+        const pp = Math.floor(rem / 1000); rem -= pp * 1000
+        const gp = Math.floor(rem / 100);  rem -= gp * 100
+        const sp = Math.floor(rem / 10);   rem -= sp * 10
+        if (pp) parts.push(pp + " PP")
+        if (gp) parts.push(gp + " GP")
+        if (sp) parts.push(sp + " SP")
+        if (rem) parts.push(rem + " CP")
+        return parts.join(", ")
+    }
+
+    readonly property int inventoryValueCopper: {
+        let total = 0
+        for (const item of inventoryItems) {
+            const cp = costInCopper(item.item_cost)
+            if (isFinite(cp)) total += cp * item.quantity
+        }
+        return total
+    }
+
+    readonly property var childrenByParent: {
+        const map = {}
+        for (const item of inventoryItems) {
+            const p = item.parent_inventory_item_id || 0
+            if (!map[p]) map[p] = []
+            map[p].push(item)
+        }
+        return map
+    }
+
+    function aggregateWeight(item) {
+        const fw = item.fixed_weight
+        if (isFinite(fw) && fw > 0)
+            return fw * item.quantity
+        let total = (item.weight_lb || 0) * item.quantity
+        const kids = childrenByParent[item.id] || []
+        for (const kid of kids)
+            total += aggregateWeight(kid)
+        return total
+    }
+
+    function aggregateCost(item) {
+        let total = 0
+        let anyKnown = false
+        const cp = costInCopper(item.item_cost)
+        if (isFinite(cp)) {
+            total += cp * item.quantity
+            anyKnown = true
+        }
+        const kids = childrenByParent[item.id] || []
+        for (const kid of kids) {
+            const sub = aggregateCost(kid)
+            if (isFinite(sub)) {
+                total += sub
+                anyKnown = true
+            }
+        }
+        return anyKnown ? total : Number.POSITIVE_INFINITY
+    }
+
     signal back()
     signal editCharacterRequested(var character)
     signal exportRequested(int characterId)
@@ -92,11 +165,13 @@ Page {
                 cmp = (a, b) =>
                     (a.custom_name || a.item_name).localeCompare(b.custom_name || b.item_name)
             else if (sortField === 2)
-                cmp = (a, b) => (a.weight_lb * a.quantity) - (b.weight_lb * b.quantity)
+                cmp = (a, b) => aggregateWeight(a) - aggregateWeight(b)
             else if (sortField === 3)
                 cmp = (a, b) => a.quantity - b.quantity
-            else
+            else if (sortField === 4)
                 cmp = (a, b) => (a.created_at || "").localeCompare(b.created_at || "")
+            else
+                cmp = (a, b) => aggregateCost(a) - aggregateCost(b)
 
             if (!sortAscending) {
                 const inner = cmp
@@ -314,6 +389,20 @@ Page {
                 ColumnLayout {
                     anchors.fill: parent
 
+                    Label { text: qsTr("Inventory value"); font.bold: true }
+                    Label {
+                        text: root.formatCopper(root.inventoryValueCopper)
+                    }
+                }
+            }
+
+            Frame {
+                Layout.fillWidth: true
+                Layout.margins: 16
+
+                ColumnLayout {
+                    anchors.fill: parent
+
                     RowLayout {
                         Layout.fillWidth: true
                         Label {
@@ -388,7 +477,8 @@ Page {
                                 { id: 1, name: qsTr("Name") },
                                 { id: 2, name: qsTr("Weight") },
                                 { id: 3, name: qsTr("Quantity") },
-                                { id: 4, name: qsTr("Date added") }
+                                { id: 4, name: qsTr("Date added") },
+                                { id: 5, name: qsTr("Cost") }
                             ]
                             onActivated: {
                                 root.sortField = currentValue
@@ -458,9 +548,15 @@ Page {
                                     horizontalAlignment: Text.AlignRight
                                 }
                                 Label {
-                                    text: qsTr("%1 lb").arg((modelData.weight_lb * modelData.quantity).toFixed(1))
+                                    text: {
+                                        const own = (modelData.weight_lb * modelData.quantity).toFixed(1)
+                                        if (!modelData.is_container) return qsTr("%1 lb").arg(own)
+                                        const agg = root.aggregateWeight(modelData).toFixed(1)
+                                        if (agg === own) return qsTr("%1 lb").arg(own)
+                                        return qsTr("%1 (%2) lb").arg(own).arg(agg)
+                                    }
                                     opacity: 0.7
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 90
                                     horizontalAlignment: Text.AlignRight
                                 }
                                 ToolButton {
