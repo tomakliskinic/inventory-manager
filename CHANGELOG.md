@@ -1,5 +1,19 @@
 ## Changelog
 
+### 2026-05-21
+- Back gesture on Android or Esc on desktop from the character list opens an exit prompt; Yes exits the app, No stays
+- Containers in a character's inventory start collapsed; tap a container row to expand or collapse it
+- Active search or filter reveals matching items inside collapsed containers via their ancestor chain
+- Hover and press highlight on inventory rows limited to container rows; non-container rows stay visually inert
+
+### 2026-05-20
+- Native Android keyboard opens correctly
+- Back gesture pops the navigation stack when past the character list
+- Menu glyph swapped to one Android's default font can render
+- Dialogs scale down to fit narrow screens
+- Catalog and inventory search bars use a three-row layout (search + Description checkbox, type + source filters, sort + direction toggle) so each field gets full width
+- Inventory gains source filter and Description-search checkbox; catalog gains Name/Weight sort with direction toggle
+
 ### 2026-05-19
 - Item catalog gains an Export button that writes all homebrew items to a JSON file, with weapon and armor type-specific details inlined per item
 - Item catalog gains an Import button; items whose names already exist in the catalog are skipped with a banner listing them, and the rest are added as homebrew
