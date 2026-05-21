@@ -214,6 +214,9 @@ Page {
     Component.onCompleted: Qt.callLater(refresh)
 
     header: ToolBar {
+        id: detailToolBar
+        readonly property bool isNarrow: width < 480
+
         RowLayout {
             anchors.fill: parent
             spacing: 0
@@ -230,16 +233,43 @@ Page {
                 font.pixelSize: 18
             }
             ToolButton {
+                visible: !detailToolBar.isNarrow
                 text: qsTr("Edit")
                 onClicked: root.editCharacterRequested(root.character)
             }
             ToolButton {
+                visible: !detailToolBar.isNarrow
                 text: qsTr("Export")
                 onClicked: root.exportRequested(root.character.id)
             }
             ToolButton {
+                visible: !detailToolBar.isNarrow
                 text: qsTr("Delete")
                 onClicked: root.deleteCharacterRequested(root.character)
+            }
+            ToolButton {
+                id: detailOverflowBtn
+                visible: detailToolBar.isNarrow
+                text: "…"
+                font.pixelSize: 20
+                onClicked: detailOverflow.open()
+                Menu {
+                    id: detailOverflow
+                    x: detailOverflowBtn.width - width
+                    y: detailOverflowBtn.height
+                    MenuItem {
+                        text: qsTr("Edit")
+                        onTriggered: root.editCharacterRequested(root.character)
+                    }
+                    MenuItem {
+                        text: qsTr("Export")
+                        onTriggered: root.exportRequested(root.character.id)
+                    }
+                    MenuItem {
+                        text: qsTr("Delete")
+                        onTriggered: root.deleteCharacterRequested(root.character)
+                    }
+                }
             }
         }
     }

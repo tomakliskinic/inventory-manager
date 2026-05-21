@@ -88,29 +88,63 @@ ApplicationWindow {
 
         Page {
             header: ToolBar {
+                id: charListToolBar
+                readonly property bool isNarrow: width < 480
+
+                Label {
+                    anchors.centerIn: parent
+                    text: qsTr("Characters")
+                    font.pixelSize: 18
+                }
+
                 RowLayout {
                     anchors.fill: parent
-                    Item { Layout.preferredWidth: 8 }
-                    Label {
-                        Layout.fillWidth: true
-                        text: qsTr("Characters")
-                        font.pixelSize: 18
-                        horizontalAlignment: Text.AlignHCenter
-                    }
+                    Item { Layout.fillWidth: true }
                     ToolButton {
+                        visible: !charListToolBar.isNarrow
                         text: qsTr("Items")
                         onClicked: stack.push(itemCatalogPageComponent)
                     }
                     ToolButton {
+                        visible: !charListToolBar.isNarrow
                         text: qsTr("Import")
                         onClicked: importFileDialog.open()
                     }
                     ToolButton {
+                        visible: !charListToolBar.isNarrow
                         text: qsTr("Export all")
                         enabled: characters.length > 0
                         onClicked: {
                             exportFileDialog.targetCharacterId = -1
                             exportFileDialog.open()
+                        }
+                    }
+                    ToolButton {
+                        id: charListOverflowBtn
+                        visible: charListToolBar.isNarrow
+                        text: "…"
+                        font.pixelSize: 20
+                        onClicked: charListOverflow.open()
+                        Menu {
+                            id: charListOverflow
+                            x: charListOverflowBtn.width - width
+                            y: charListOverflowBtn.height
+                            MenuItem {
+                                text: qsTr("Items")
+                                onTriggered: stack.push(itemCatalogPageComponent)
+                            }
+                            MenuItem {
+                                text: qsTr("Import")
+                                onTriggered: importFileDialog.open()
+                            }
+                            MenuItem {
+                                text: qsTr("Export all")
+                                enabled: characters.length > 0
+                                onTriggered: {
+                                    exportFileDialog.targetCharacterId = -1
+                                    exportFileDialog.open()
+                                }
+                            }
                         }
                     }
                 }
@@ -245,6 +279,9 @@ ApplicationWindow {
             Component.onCompleted: refresh()
 
             header: ToolBar {
+                id: catalogToolBar
+                readonly property bool isNarrow: width < 480
+
                 RowLayout {
                     anchors.fill: parent
                     spacing: 0
@@ -260,16 +297,38 @@ ApplicationWindow {
                         font.pixelSize: 18
                     }
                     ToolButton {
+                        visible: !catalogToolBar.isNarrow
                         text: qsTr("Import")
                         onClicked: homebrewImportDialog.open()
                     }
                     ToolButton {
+                        visible: !catalogToolBar.isNarrow
                         text: qsTr("Export")
                         onClicked: homebrewExportDialog.open()
                     }
                     ToolButton {
                         text: qsTr("+ Add")
                         onClicked: itemDefinitionEditDialog.openCreate()
+                    }
+                    ToolButton {
+                        id: catalogOverflowBtn
+                        visible: catalogToolBar.isNarrow
+                        text: "…"
+                        font.pixelSize: 20
+                        onClicked: catalogOverflow.open()
+                        Menu {
+                            id: catalogOverflow
+                            x: catalogOverflowBtn.width - width
+                            y: catalogOverflowBtn.height
+                            MenuItem {
+                                text: qsTr("Import")
+                                onTriggered: homebrewImportDialog.open()
+                            }
+                            MenuItem {
+                                text: qsTr("Export")
+                                onTriggered: homebrewExportDialog.open()
+                            }
+                        }
                     }
                 }
             }
