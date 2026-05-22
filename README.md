@@ -2,41 +2,42 @@
 
 A cross-platform desktop and mobile application for managing character inventories in compliance with Dungeons & Dragons 5th Edition rules. Built with Qt 6.
 
-## Overview
+## Overv
+This application lets players create and manage characters and their inventories, with automatic calculations for weight, carry capacity, and other D&D 5E-defined statistics. All data updates dynamically with every inventory change.
 
-This application will allow players to create and manage characters and their inventories, with automatic calculations for weight, carry capacity, and other D&D 5E-defined statistics. All data will update dynamically with every inventory change.
-
-## Planned Features
+## Features
 
 ### Character & Item Management
-- Create, edit, and delete characters with core attributes (name, level, carry capacity, etc.)
-- Create, edit, and delete items with properties such as name, type, weight, value, and description
-- Input validation to prevent invalid values (e.g. negative quantities)
+- Create, edit, and delete characters with core attributes (name, level, strength, size, race, class, notes)
+- Coin tracking per character across five denominations (CP, SP, EP, GP, PP), counted toward encumbrance
+- Create, edit, and delete Homebrew items via a browseable catalog with name, type, weight, cost, rarity, attunement, container flags, and description
+- Per-type structured details with SRD-anchored validation: Weapons (category, range, damage dice, properties, mastery, ammunition) and Armor (category, AC, Dex cap, strength, stealth, don/doff times)
+- Input validation throughout (positive quantities, non-empty names, capacity constraints)
 - Per-character inventory view with a clear display of all associated items and their attributes
 
 ### Inventory Management & Organization
-- Add items to a character's inventory and define quantities
-- Move items within the inventory
-- **Container system** — organize items in a hierarchical structure (e.g. bags within bags), with full container and content display
-- Sort items by various criteria (name, weight, value)
-- Filter items by type or other attributes
-- Dynamic search across the inventory
-- Automatic calculation of total inventory weight, encumbrance relative to carry capacity, and other 5E-relevant stats — updated in real time on every change
+- Add items to a character's inventory and define quantities; stackable Gear/Tool items auto-merge
+- Move items between containers; remove items with three modes for non-empty containers (spill to parent, delete with contents, move contents elsewhere)
+- **Container system** — organize items in a hierarchical structure (e.g. bags within bags); each container collapses/expands per character
+- Sort items by name, weight, cost, quantity, or date added; weight and cost sort aggregate container contents
+- Filter items by type, source (SRD / Homebrew), or full-text search with optional description match
+- Automatic calculation of total inventory weight, encumbrance relative to carry capacity, and total inventory value broken into the largest coin denominations — updated in real time on every change
 
 ### Data Storage & Exchange
-- Persistent storage using a local **SQLite** database with referential integrity
-- **JSON export** for backups or transferring data between devices
-- **JSON import** with structure validation
+- Persistent storage using a local **SQLite** database with referential integrity (FK constraints across relations)
+- Seeded SRD catalog of 100+ items (Weapons, Armor, Gear, Tools, Magic) available from first launch
+- **JSON export/import of characters** — single or all — for backups and transfer between devices
+- **JSON export/import of Homebrew item packs** so custom items can be shared across installs
+- Import paths validate structure, skip name conflicts with a warning, and wrap multi-step writes in a transaction
 
 ### Cross-Platform Support
-- Responsive UI built with **QML**, adapted for different screen sizes
-- Targeting **desktop** (Windows / Linux) and **mobile** (Android)
+- Responsive UI built with **QML**, adapted for different screen sizes (header overflow menus and three-row search bars on narrow phones)
+- Runs on **Windows desktop**, **Linux desktop**, and **Android**
+- Custom Android packaging: app icon, splash screen, portrait lock, exit-clears-recents
 
 ## Project Status
 
-Active development. The core inventory management loop is functional: character CRUD, hierarchical inventory with nested containers (collapsible per character), item add/edit/move/remove with stacking for fungibles, coin tracking, search/filter/sort (including by name, weight, and cost with container-aware aggregation), live weight/capacity calculations against D&D 5E carry rules, total inventory value broken into the largest coin denominations, JSON export/import of characters (single or all), a browseable item catalog with full CRUD on Homebrew items including weapon and armor type-specific details with SRD-anchored validation, and JSON export/import of Homebrew item packs. Items are picked from the seeded SRD catalog plus any Homebrew entries you add. Builds and runs on Windows desktop, Linux desktop, and Android with custom icon, label, and splash.
-
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+Active development. See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ## Tech Stack
 
