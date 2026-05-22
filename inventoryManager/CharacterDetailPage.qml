@@ -592,41 +592,44 @@ Page {
                                     horizontalAlignment: Text.AlignRight
                                 }
                                 ToolButton {
+                                    id: inventoryRowMenuBtn
                                     text: "…"
                                     font.pixelSize: 16
                                     onClicked: {
-                                        inventoryRowMenu.item = modelData
-                                        inventoryRowMenu.popup()
+                                        const overlay = Overlay.overlay
+                                        const sceneY = inventoryRowMenuBtn.mapToItem(overlay, 0, 0).y
+                                        const menuH = inventoryRowMenu.implicitHeight
+                                        inventoryRowMenu.y = (sceneY + inventoryRowMenuBtn.height + menuH + 8 > overlay.height)
+                                                  ? -menuH
+                                                  : inventoryRowMenuBtn.height
+                                        inventoryRowMenu.open()
+                                    }
+                                    Menu {
+                                        id: inventoryRowMenu
+                                        x: inventoryRowMenuBtn.width - width
+                                        MenuItem {
+                                            text: qsTr("View info")
+                                            onTriggered: root.viewItemDefinitionRequested(modelData.item_id)
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Edit")
+                                            onTriggered: root.editItemRequested(modelData)
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Move")
+                                            onTriggered: root.moveItemRequested(modelData, root.character.id)
+                                        }
+                                        MenuItem {
+                                            text: qsTr("Remove")
+                                            onTriggered: {
+                                                if (modelData.is_container && DB.getContainerContents(modelData.id).length > 0)
+                                                    root.removeContainerRequested(modelData, root.character.id)
+                                                else
+                                                    root.removeItemRequested(modelData)
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                        }
-                    }
-
-                    Menu {
-                        id: inventoryRowMenu
-                        property var item: null
-
-                        MenuItem {
-                            text: qsTr("View info")
-                            onTriggered: root.viewItemDefinitionRequested(inventoryRowMenu.item.item_id)
-                        }
-                        MenuItem {
-                            text: qsTr("Edit")
-                            onTriggered: root.editItemRequested(inventoryRowMenu.item)
-                        }
-                        MenuItem {
-                            text: qsTr("Move")
-                            onTriggered: root.moveItemRequested(inventoryRowMenu.item, root.character.id)
-                        }
-                        MenuItem {
-                            text: qsTr("Remove")
-                            onTriggered: {
-                                const it = inventoryRowMenu.item
-                                if (it.is_container && DB.getContainerContents(it.id).length > 0)
-                                    root.removeContainerRequested(it, root.character.id)
-                                else
-                                    root.removeItemRequested(it)
                             }
                         }
                     }

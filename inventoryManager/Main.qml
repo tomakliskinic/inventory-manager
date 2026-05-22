@@ -167,33 +167,37 @@ ApplicationWindow {
                             elide: Text.ElideRight
                         }
                         ToolButton {
+                            id: rowMenuBtn
                             text: "…"
                             font.pixelSize: 18
                             onClicked: {
-                                rowMenu.character = modelData
-                                rowMenu.popup()
+                                const overlay = Overlay.overlay
+                                const sceneY = rowMenuBtn.mapToItem(overlay, 0, 0).y
+                                const menuH = rowMenu.implicitHeight
+                                rowMenu.y = (sceneY + rowMenuBtn.height + menuH + 8 > overlay.height)
+                                          ? -menuH
+                                          : rowMenuBtn.height
+                                rowMenu.open()
+                            }
+                            Menu {
+                                id: rowMenu
+                                x: rowMenuBtn.width - width
+                                MenuItem {
+                                    text: qsTr("Edit")
+                                    onTriggered: characterDialog.openEdit(modelData)
+                                }
+                                MenuItem {
+                                    text: qsTr("Delete")
+                                    onTriggered: {
+                                        deleteConfirm.character = modelData
+                                        deleteConfirm.open()
+                                    }
+                                }
                             }
                         }
                     }
 
                     onClicked: stack.push(detailPageComponent, { "character": modelData })
-                }
-            }
-
-            Menu {
-                id: rowMenu
-                property var character: null
-
-                MenuItem {
-                    text: qsTr("Edit")
-                    onTriggered: characterDialog.openEdit(rowMenu.character)
-                }
-                MenuItem {
-                    text: qsTr("Delete")
-                    onTriggered: {
-                        deleteConfirm.character = rowMenu.character
-                        deleteConfirm.open()
-                    }
                 }
             }
 
@@ -452,34 +456,38 @@ ApplicationWindow {
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             ToolButton {
+                                id: catalogRowMenuBtn
                                 text: "…"
                                 font.pixelSize: 16
                                 visible: modelData.source === Enums.ItemSource.Homebrew
                                 onClicked: {
-                                    catalogRowMenu.item = modelData
-                                    catalogRowMenu.popup()
+                                    const overlay = Overlay.overlay
+                                    const sceneY = catalogRowMenuBtn.mapToItem(overlay, 0, 0).y
+                                    const menuH = catalogRowMenu.implicitHeight
+                                    catalogRowMenu.y = (sceneY + catalogRowMenuBtn.height + menuH + 8 > overlay.height)
+                                              ? -menuH
+                                              : catalogRowMenuBtn.height
+                                    catalogRowMenu.open()
+                                }
+                                Menu {
+                                    id: catalogRowMenu
+                                    x: catalogRowMenuBtn.width - width
+                                    MenuItem {
+                                        text: qsTr("Edit")
+                                        onTriggered: itemDefinitionEditDialog.openEdit(modelData)
+                                    }
+                                    MenuItem {
+                                        text: qsTr("Delete")
+                                        onTriggered: {
+                                            catalogDeleteConfirm.item = modelData
+                                            catalogDeleteConfirm.open()
+                                        }
+                                    }
                                 }
                             }
                         }
 
                         onClicked: itemDefinitionViewDialog.openFor(modelData)
-                    }
-                }
-
-                Menu {
-                    id: catalogRowMenu
-                    property var item: null
-
-                    MenuItem {
-                        text: qsTr("Edit")
-                        onTriggered: itemDefinitionEditDialog.openEdit(catalogRowMenu.item)
-                    }
-                    MenuItem {
-                        text: qsTr("Delete")
-                        onTriggered: {
-                            catalogDeleteConfirm.item = catalogRowMenu.item
-                            catalogDeleteConfirm.open()
-                        }
                     }
                 }
             }
