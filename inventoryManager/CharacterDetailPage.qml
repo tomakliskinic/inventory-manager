@@ -127,6 +127,7 @@ Page {
     signal moveItemRequested(var item, int characterId)
     signal removeContainerRequested(var item, int characterId)
     signal removeItemRequested(var item)
+    signal viewItemDefinitionRequested(int itemId)
 
     readonly property var filteredItems: {
         let result = inventoryItems
@@ -545,14 +546,15 @@ Page {
                             id: rowDelegate
                             Layout.fillWidth: true
                             padding: 4
-                            hoverEnabled: modelData.is_container
+                            hoverEnabled: true
                             onClicked: {
                                 if (modelData.is_container)
                                     root.toggleContainerExpansion(modelData.id)
+                                else
+                                    root.viewItemDefinitionRequested(modelData.item_id)
                             }
                             background: Rectangle {
                                 color: {
-                                    if (!modelData.is_container) return "transparent"
                                     if (rowDelegate.pressed) return Qt.rgba(0, 0, 0, 0.12)
                                     if (rowDelegate.hovered) return Qt.rgba(0, 0, 0, 0.06)
                                     return "transparent"
@@ -605,6 +607,10 @@ Page {
                         id: inventoryRowMenu
                         property var item: null
 
+                        MenuItem {
+                            text: qsTr("View info")
+                            onTriggered: root.viewItemDefinitionRequested(inventoryRowMenu.item.item_id)
+                        }
                         MenuItem {
                             text: qsTr("Edit")
                             onTriggered: root.editItemRequested(inventoryRowMenu.item)

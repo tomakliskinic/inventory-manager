@@ -26,7 +26,13 @@ Dialog {
     modal: true
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 480) - 32, 480)
-    height: Math.min((parent ? parent.height : 600) - 60, 600)
+    height: {
+        const maxH = (parent ? parent.height : 600) - 60
+        const chrome = (header ? header.implicitHeight : 0)
+                     + (footer ? footer.implicitHeight : 0)
+                     + topPadding + bottomPadding
+        return Math.min(grid.implicitHeight + chrome, maxH)
+    }
     standardButtons: Dialog.Close
 
     ScrollView {
@@ -35,6 +41,7 @@ Dialog {
         clip: true
 
         GridLayout {
+            id: grid
             width: root.availableWidth - 20
             columns: 2
             columnSpacing: 16

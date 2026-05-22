@@ -509,6 +509,11 @@ ApplicationWindow {
                 itemRemoveSimpleConfirm.item = it
                 itemRemoveSimpleConfirm.open()
             }
+            onViewItemDefinitionRequested: id => {
+                const itemDef = DB.getItemDefinition(id)
+                if (itemDef && itemDef.id)
+                    itemDefinitionViewDialog.openFor(itemDef)
+            }
         }
     }
 
