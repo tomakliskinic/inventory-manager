@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2026-05-22
+- Custom Android app identity: treasure-chest icon at all densities, "Inventory Manager" label in the launcher and recents, splash screen during startup
+- Android orientation locked to portrait, and the app is removed from Recents when exited via the quit prompt
+- Unused Android permissions removed from the install prompt (Bluetooth, camera, audio)
+- Tap any non-container inventory row to open its item info dialog; "View info" added to every row's ... menu so containers (whose tap toggles expansion) also have a path to it
+- Item info dialog shrinks to fit short content instead of holding a fixed height with empty space below
+- Row ... menus on character, catalog, and inventory rows drop down from their button, right-aligned, and flip upward when the button is near the bottom of the screen so the menu doesn't clip off-screen
+
 ### 2026-05-21
 - Sort by Cost in the item catalog and in a character's inventory; cost text is parsed into copper pieces so mixed currencies compare correctly
 - Character detail page shows total inventory value, broken into the largest denominations (PP, GP, SP, CP)
