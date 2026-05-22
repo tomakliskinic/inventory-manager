@@ -17,6 +17,7 @@ ApplicationWindow {
 
     property var characters: []
     property bool confirmedQuit: false
+    readonly property bool isNarrow: width < 480
 
     Component.onCompleted: refresh()
 
@@ -88,9 +89,6 @@ ApplicationWindow {
 
         Page {
             header: ToolBar {
-                id: charListToolBar
-                readonly property bool isNarrow: width < 480
-
                 Label {
                     anchors.centerIn: parent
                     text: qsTr("Characters")
@@ -101,17 +99,17 @@ ApplicationWindow {
                     anchors.fill: parent
                     Item { Layout.fillWidth: true }
                     ToolButton {
-                        visible: !charListToolBar.isNarrow
+                        visible: !window.isNarrow
                         text: qsTr("Items")
                         onClicked: stack.push(itemCatalogPageComponent)
                     }
                     ToolButton {
-                        visible: !charListToolBar.isNarrow
+                        visible: !window.isNarrow
                         text: qsTr("Import")
                         onClicked: importFileDialog.open()
                     }
                     ToolButton {
-                        visible: !charListToolBar.isNarrow
+                        visible: !window.isNarrow
                         text: qsTr("Export all")
                         enabled: characters.length > 0
                         onClicked: {
@@ -119,31 +117,23 @@ ApplicationWindow {
                             exportFileDialog.open()
                         }
                     }
-                    ToolButton {
-                        id: charListOverflowBtn
-                        visible: charListToolBar.isNarrow
-                        text: "…"
+                    OverflowMenuButton {
+                        visible: window.isNarrow
                         font.pixelSize: 20
-                        onClicked: charListOverflow.open()
-                        Menu {
-                            id: charListOverflow
-                            x: charListOverflowBtn.width - width
-                            y: charListOverflowBtn.height
-                            MenuItem {
-                                text: qsTr("Items")
-                                onTriggered: stack.push(itemCatalogPageComponent)
-                            }
-                            MenuItem {
-                                text: qsTr("Import")
-                                onTriggered: importFileDialog.open()
-                            }
-                            MenuItem {
-                                text: qsTr("Export all")
-                                enabled: characters.length > 0
-                                onTriggered: {
-                                    exportFileDialog.targetCharacterId = -1
-                                    exportFileDialog.open()
-                                }
+                        MenuItem {
+                            text: qsTr("Items")
+                            onTriggered: stack.push(itemCatalogPageComponent)
+                        }
+                        MenuItem {
+                            text: qsTr("Import")
+                            onTriggered: importFileDialog.open()
+                        }
+                        MenuItem {
+                            text: qsTr("Export all")
+                            enabled: characters.length > 0
+                            onTriggered: {
+                                exportFileDialog.targetCharacterId = -1
+                                exportFileDialog.open()
                             }
                         }
                     }
@@ -166,32 +156,17 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             elide: Text.ElideRight
                         }
-                        ToolButton {
-                            id: rowMenuBtn
-                            text: "…"
+                        OverflowMenuButton {
                             font.pixelSize: 18
-                            onClicked: {
-                                const overlay = Overlay.overlay
-                                const sceneY = rowMenuBtn.mapToItem(overlay, 0, 0).y
-                                const menuH = rowMenu.implicitHeight
-                                rowMenu.y = (sceneY + rowMenuBtn.height + menuH + 8 > overlay.height)
-                                          ? -menuH
-                                          : rowMenuBtn.height
-                                rowMenu.open()
+                            MenuItem {
+                                text: qsTr("Edit")
+                                onTriggered: characterDialog.openEdit(modelData)
                             }
-                            Menu {
-                                id: rowMenu
-                                x: rowMenuBtn.width - width
-                                MenuItem {
-                                    text: qsTr("Edit")
-                                    onTriggered: characterDialog.openEdit(modelData)
-                                }
-                                MenuItem {
-                                    text: qsTr("Delete")
-                                    onTriggered: {
-                                        deleteConfirm.character = modelData
-                                        deleteConfirm.open()
-                                    }
+                            MenuItem {
+                                text: qsTr("Delete")
+                                onTriggered: {
+                                    deleteConfirm.character = modelData
+                                    deleteConfirm.open()
                                 }
                             }
                         }
@@ -234,16 +209,6 @@ ApplicationWindow {
             property int sortField: 0
             property bool sortAscending: true
 
-            function costInCopper(text) {
-                if (!text) return Number.POSITIVE_INFINITY
-                const m = String(text).match(/^\s*([\d,]+)\s*([A-Z]{2})/)
-                if (!m) return Number.POSITIVE_INFINITY
-                const amount = parseInt(m[1].replace(/,/g, ""), 10)
-                if (isNaN(amount)) return Number.POSITIVE_INFINITY
-                const mult = { CP: 1, SP: 10, EP: 50, GP: 100, PP: 1000 }[m[2]]
-                return mult === undefined ? Number.POSITIVE_INFINITY : amount * mult
-            }
-
             readonly property var filteredItems: {
                 let result = allItems
                 if (searchText) {
@@ -266,7 +231,7 @@ ApplicationWindow {
                     else if (sortField === 2)
                         cmp = (a, b) => (a.weight_lb || 0) - (b.weight_lb || 0)
                     else
-                        cmp = (a, b) => costInCopper(a.cost) - costInCopper(b.cost)
+                        cmp = (a, b) => Utils.costInCopper(a.cost) - Utils.costInCopper(b.cost)
                     if (!sortAscending) {
                         const inner = cmp
                         cmp = (a, b) => -inner(a, b)
@@ -283,9 +248,6 @@ ApplicationWindow {
             Component.onCompleted: refresh()
 
             header: ToolBar {
-                id: catalogToolBar
-                readonly property bool isNarrow: width < 480
-
                 RowLayout {
                     anchors.fill: parent
                     spacing: 0
@@ -301,12 +263,12 @@ ApplicationWindow {
                         font.pixelSize: 18
                     }
                     ToolButton {
-                        visible: !catalogToolBar.isNarrow
+                        visible: !window.isNarrow
                         text: qsTr("Import")
                         onClicked: homebrewImportDialog.open()
                     }
                     ToolButton {
-                        visible: !catalogToolBar.isNarrow
+                        visible: !window.isNarrow
                         text: qsTr("Export")
                         onClicked: homebrewExportDialog.open()
                     }
@@ -314,24 +276,16 @@ ApplicationWindow {
                         text: qsTr("+ Add")
                         onClicked: itemDefinitionEditDialog.openCreate()
                     }
-                    ToolButton {
-                        id: catalogOverflowBtn
-                        visible: catalogToolBar.isNarrow
-                        text: "…"
+                    OverflowMenuButton {
+                        visible: window.isNarrow
                         font.pixelSize: 20
-                        onClicked: catalogOverflow.open()
-                        Menu {
-                            id: catalogOverflow
-                            x: catalogOverflowBtn.width - width
-                            y: catalogOverflowBtn.height
-                            MenuItem {
-                                text: qsTr("Import")
-                                onTriggered: homebrewImportDialog.open()
-                            }
-                            MenuItem {
-                                text: qsTr("Export")
-                                onTriggered: homebrewExportDialog.open()
-                            }
+                        MenuItem {
+                            text: qsTr("Import")
+                            onTriggered: homebrewImportDialog.open()
+                        }
+                        MenuItem {
+                            text: qsTr("Export")
+                            onTriggered: homebrewExportDialog.open()
                         }
                     }
                 }
@@ -455,33 +409,17 @@ ApplicationWindow {
                                 Layout.preferredWidth: 24
                                 horizontalAlignment: Text.AlignHCenter
                             }
-                            ToolButton {
-                                id: catalogRowMenuBtn
-                                text: "…"
-                                font.pixelSize: 16
+                            OverflowMenuButton {
                                 visible: modelData.source === Enums.ItemSource.Homebrew
-                                onClicked: {
-                                    const overlay = Overlay.overlay
-                                    const sceneY = catalogRowMenuBtn.mapToItem(overlay, 0, 0).y
-                                    const menuH = catalogRowMenu.implicitHeight
-                                    catalogRowMenu.y = (sceneY + catalogRowMenuBtn.height + menuH + 8 > overlay.height)
-                                              ? -menuH
-                                              : catalogRowMenuBtn.height
-                                    catalogRowMenu.open()
+                                MenuItem {
+                                    text: qsTr("Edit")
+                                    onTriggered: itemDefinitionEditDialog.openEdit(modelData)
                                 }
-                                Menu {
-                                    id: catalogRowMenu
-                                    x: catalogRowMenuBtn.width - width
-                                    MenuItem {
-                                        text: qsTr("Edit")
-                                        onTriggered: itemDefinitionEditDialog.openEdit(modelData)
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Delete")
-                                        onTriggered: {
-                                            catalogDeleteConfirm.item = modelData
-                                            catalogDeleteConfirm.open()
-                                        }
+                                MenuItem {
+                                    text: qsTr("Delete")
+                                    onTriggered: {
+                                        catalogDeleteConfirm.item = modelData
+                                        catalogDeleteConfirm.open()
                                     }
                                 }
                             }

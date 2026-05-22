@@ -44,34 +44,10 @@ Page {
         return true
     }
 
-    function costInCopper(text) {
-        if (!text) return Number.POSITIVE_INFINITY
-        const m = String(text).match(/^\s*([\d,]+)\s*([A-Z]{2})/)
-        if (!m) return Number.POSITIVE_INFINITY
-        const amount = parseInt(m[1].replace(/,/g, ""), 10)
-        if (isNaN(amount)) return Number.POSITIVE_INFINITY
-        const mult = { CP: 1, SP: 10, EP: 50, GP: 100, PP: 1000 }[m[2]]
-        return mult === undefined ? Number.POSITIVE_INFINITY : amount * mult
-    }
-
-    function formatCopper(cp) {
-        if (cp <= 0) return qsTr("—")
-        const parts = []
-        let rem = cp
-        const pp = Math.floor(rem / 1000); rem -= pp * 1000
-        const gp = Math.floor(rem / 100);  rem -= gp * 100
-        const sp = Math.floor(rem / 10);   rem -= sp * 10
-        if (pp) parts.push(pp + " PP")
-        if (gp) parts.push(gp + " GP")
-        if (sp) parts.push(sp + " SP")
-        if (rem) parts.push(rem + " CP")
-        return parts.join(", ")
-    }
-
     readonly property int inventoryValueCopper: {
         let total = 0
         for (const item of inventoryItems) {
-            const cp = costInCopper(item.item_cost)
+            const cp = Utils.costInCopper(item.item_cost)
             if (isFinite(cp)) total += cp * item.quantity
         }
         return total
@@ -101,7 +77,7 @@ Page {
     function aggregateCost(item) {
         let total = 0
         let anyKnown = false
-        const cp = costInCopper(item.item_cost)
+        const cp = Utils.costInCopper(item.item_cost)
         if (isFinite(cp)) {
             total += cp * item.quantity
             anyKnown = true
@@ -215,9 +191,6 @@ Page {
     Component.onCompleted: Qt.callLater(refresh)
 
     header: ToolBar {
-        id: detailToolBar
-        readonly property bool isNarrow: width < 480
-
         RowLayout {
             anchors.fill: parent
             spacing: 0
@@ -234,42 +207,34 @@ Page {
                 font.pixelSize: 18
             }
             ToolButton {
-                visible: !detailToolBar.isNarrow
+                visible: !ApplicationWindow.window.isNarrow
                 text: qsTr("Edit")
                 onClicked: root.editCharacterRequested(root.character)
             }
             ToolButton {
-                visible: !detailToolBar.isNarrow
+                visible: !ApplicationWindow.window.isNarrow
                 text: qsTr("Export")
                 onClicked: root.exportRequested(root.character.id)
             }
             ToolButton {
-                visible: !detailToolBar.isNarrow
+                visible: !ApplicationWindow.window.isNarrow
                 text: qsTr("Delete")
                 onClicked: root.deleteCharacterRequested(root.character)
             }
-            ToolButton {
-                id: detailOverflowBtn
-                visible: detailToolBar.isNarrow
-                text: "…"
+            OverflowMenuButton {
+                visible: ApplicationWindow.window.isNarrow
                 font.pixelSize: 20
-                onClicked: detailOverflow.open()
-                Menu {
-                    id: detailOverflow
-                    x: detailOverflowBtn.width - width
-                    y: detailOverflowBtn.height
-                    MenuItem {
-                        text: qsTr("Edit")
-                        onTriggered: root.editCharacterRequested(root.character)
-                    }
-                    MenuItem {
-                        text: qsTr("Export")
-                        onTriggered: root.exportRequested(root.character.id)
-                    }
-                    MenuItem {
-                        text: qsTr("Delete")
-                        onTriggered: root.deleteCharacterRequested(root.character)
-                    }
+                MenuItem {
+                    text: qsTr("Edit")
+                    onTriggered: root.editCharacterRequested(root.character)
+                }
+                MenuItem {
+                    text: qsTr("Export")
+                    onTriggered: root.exportRequested(root.character.id)
+                }
+                MenuItem {
+                    text: qsTr("Delete")
+                    onTriggered: root.deleteCharacterRequested(root.character)
                 }
             }
         }
@@ -422,7 +387,7 @@ Page {
 
                     Label { text: qsTr("Inventory value"); font.bold: true }
                     Label {
-                        text: root.formatCopper(root.inventoryValueCopper)
+                        text: Utils.formatCopper(root.inventoryValueCopper)
                     }
                 }
             }
@@ -591,42 +556,26 @@ Page {
                                     Layout.preferredWidth: 90
                                     horizontalAlignment: Text.AlignRight
                                 }
-                                ToolButton {
-                                    id: inventoryRowMenuBtn
-                                    text: "…"
-                                    font.pixelSize: 16
-                                    onClicked: {
-                                        const overlay = Overlay.overlay
-                                        const sceneY = inventoryRowMenuBtn.mapToItem(overlay, 0, 0).y
-                                        const menuH = inventoryRowMenu.implicitHeight
-                                        inventoryRowMenu.y = (sceneY + inventoryRowMenuBtn.height + menuH + 8 > overlay.height)
-                                                  ? -menuH
-                                                  : inventoryRowMenuBtn.height
-                                        inventoryRowMenu.open()
+                                OverflowMenuButton {
+                                    MenuItem {
+                                        text: qsTr("View info")
+                                        onTriggered: root.viewItemDefinitionRequested(modelData.item_id)
                                     }
-                                    Menu {
-                                        id: inventoryRowMenu
-                                        x: inventoryRowMenuBtn.width - width
-                                        MenuItem {
-                                            text: qsTr("View info")
-                                            onTriggered: root.viewItemDefinitionRequested(modelData.item_id)
-                                        }
-                                        MenuItem {
-                                            text: qsTr("Edit")
-                                            onTriggered: root.editItemRequested(modelData)
-                                        }
-                                        MenuItem {
-                                            text: qsTr("Move")
-                                            onTriggered: root.moveItemRequested(modelData, root.character.id)
-                                        }
-                                        MenuItem {
-                                            text: qsTr("Remove")
-                                            onTriggered: {
-                                                if (modelData.is_container && DB.getContainerContents(modelData.id).length > 0)
-                                                    root.removeContainerRequested(modelData, root.character.id)
-                                                else
-                                                    root.removeItemRequested(modelData)
-                                            }
+                                    MenuItem {
+                                        text: qsTr("Edit")
+                                        onTriggered: root.editItemRequested(modelData)
+                                    }
+                                    MenuItem {
+                                        text: qsTr("Move")
+                                        onTriggered: root.moveItemRequested(modelData, root.character.id)
+                                    }
+                                    MenuItem {
+                                        text: qsTr("Remove")
+                                        onTriggered: {
+                                            if (modelData.is_container && DB.getContainerContents(modelData.id).length > 0)
+                                                root.removeContainerRequested(modelData, root.character.id)
+                                            else
+                                                root.removeItemRequested(modelData)
                                         }
                                     }
                                 }

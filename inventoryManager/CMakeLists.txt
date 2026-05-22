@@ -12,6 +12,12 @@ qt_add_executable(appinventoryManager
     main.cpp
 )
 
+set_source_files_properties(Utils.qml
+    PROPERTIES
+        QT_QML_SOURCE_TYPENAME Utils
+        QT_QML_SINGLETON_TYPE TRUE
+)
+
 qt_add_qml_module(appinventoryManager
     URI inventoryManager
     QML_FILES
@@ -21,6 +27,8 @@ qt_add_qml_module(appinventoryManager
         ItemDefinitionViewDialog.qml
         ItemDefinitionEditDialog.qml
         CharacterDetailPage.qml
+        Utils.qml
+        OverflowMenuButton.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp
