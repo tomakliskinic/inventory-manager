@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-05-23
+- Cost and value formatting helpers extracted into a shared piece so every page uses one definition
+- Narrow-screen detection extracted into a single window-level property reused by every page header
+- ... overflow menu (used on rows and headers) extracted into a reusable piece that handles right-alignment and flip-upward when near the screen edge
+- Character edit, coins editor, add item, inventory item editor, move item, and remove-container dialogs each reorganized as self-contained pieces extracted from the main window
+- Inventory row layout reorganized as a reusable piece extracted from the character detail page
+
 ### 2026-05-22
 - Custom Android app identity: treasure-chest icon at all densities, "Inventory Manager" label in the launcher and recents, splash screen during startup
 - Android orientation locked to portrait, and the app is removed from Recents when exited via the quit prompt
