@@ -176,12 +176,28 @@ ApplicationWindow {
                 }
             }
 
-            Label {
+            ColumnLayout {
                 anchors.centerIn: parent
+                spacing: 12
                 visible: characters.length === 0
-                text: qsTr("No characters yet")
-                font.pixelSize: 18
-                opacity: 0.6
+
+                Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "📜"
+                    font.pixelSize: 56
+                    opacity: 0.4
+                }
+                Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: qsTr("No characters yet")
+                    font.pixelSize: 18
+                    opacity: 0.7
+                }
+                Label {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: qsTr("Tap + to create your first character")
+                    opacity: 0.5
+                }
             }
 
             RoundButton {

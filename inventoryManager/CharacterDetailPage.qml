@@ -105,6 +105,10 @@ Page {
     signal removeItemRequested(var item)
     signal viewItemDefinitionRequested(int itemId)
 
+    readonly property bool isNarrow: ApplicationWindow.window
+                                     ? root.isNarrow
+                                     : false
+
     readonly property var filteredItems: {
         let result = inventoryItems
 
@@ -207,22 +211,22 @@ Page {
                 font.pixelSize: 18
             }
             ToolButton {
-                visible: !ApplicationWindow.window.isNarrow
+                visible: !root.isNarrow
                 text: qsTr("Edit")
                 onClicked: root.editCharacterRequested(root.character)
             }
             ToolButton {
-                visible: !ApplicationWindow.window.isNarrow
+                visible: !root.isNarrow
                 text: qsTr("Export")
                 onClicked: root.exportRequested(root.character.id)
             }
             ToolButton {
-                visible: !ApplicationWindow.window.isNarrow
+                visible: !root.isNarrow
                 text: qsTr("Delete")
                 onClicked: root.deleteCharacterRequested(root.character)
             }
             OverflowMenuButton {
-                visible: ApplicationWindow.window.isNarrow
+                visible: root.isNarrow
                 font.pixelSize: 20
                 MenuItem {
                     text: qsTr("Edit")
@@ -488,22 +492,6 @@ Page {
                         }
                     }
 
-                    Label {
-                        Layout.fillWidth: true
-                        visible: root.inventoryItems.length === 0
-                        text: qsTr("No items")
-                        opacity: 0.5
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        visible: root.inventoryItems.length > 0
-                                 && root.filteredItems.length === 0
-                        text: qsTr("No items match.")
-                        opacity: 0.5
-                        horizontalAlignment: Text.AlignHCenter
-                    }
 
                     Repeater {
                         model: root.filteredItems
