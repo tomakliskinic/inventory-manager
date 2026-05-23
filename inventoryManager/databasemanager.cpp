@@ -332,14 +332,27 @@ int DatabaseManager::importFromFile(const QUrl &fileUrl)
     return imported;
 }
 
-bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl)
+bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList &itemIds)
 {
     QSqlQuery q(m_db);
-    q.prepare("SELECT id, name, item_type, weight_lb, cost, description, "
-              "is_container, container_weight_capacity, fixed_weight, "
-              "rarity, requires_attunement "
-              "FROM item_definitions WHERE source = :s ORDER BY name");
+    QString sql = QStringLiteral(
+        "SELECT id, name, item_type, weight_lb, cost, description, "
+        "is_container, container_weight_capacity, fixed_weight, "
+        "rarity, requires_attunement "
+        "FROM item_definitions WHERE source = :s");
+
+    QStringList idPlaceholders;
+    for (int i = 0; i < itemIds.size(); ++i)
+        idPlaceholders << QStringLiteral(":id%1").arg(i);
+    if (!idPlaceholders.isEmpty())
+        sql += QStringLiteral(" AND id IN (%1)").arg(idPlaceholders.join(QLatin1String(", ")));
+
+    sql += QStringLiteral(" ORDER BY name");
+
+    q.prepare(sql);
     q.bindValue(":s", static_cast<int>(Enums::ItemSource::Homebrew));
+    for (int i = 0; i < itemIds.size(); ++i)
+        q.bindValue(QStringLiteral(":id%1").arg(i), itemIds[i].toInt());
     if (!q.exec()) {
         reportError(QStringLiteral("exportHomebrewPack failed: %1").arg(q.lastError().text()));
         return false;

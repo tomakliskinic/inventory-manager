@@ -208,6 +208,34 @@ ApplicationWindow {
             property bool searchInDescription: false
             property int sortField: 0
             property bool sortAscending: true
+            property bool selectionMode: false
+            property var selectedIds: ({})
+            readonly property int selectedCount: Object.keys(selectedIds).length
+
+            function toggleSelection(id) {
+                const next = Object.assign({}, selectedIds)
+                if (next[id]) delete next[id]
+                else next[id] = true
+                selectedIds = next
+            }
+
+            function isSelected(id) {
+                return selectedIds[id] === true
+            }
+
+            function enterSelectionMode() {
+                selectionMode = true
+                selectedIds = ({})
+            }
+
+            function exitSelectionMode() {
+                selectionMode = false
+                selectedIds = ({})
+            }
+
+            function selectedIdsArray() {
+                return Object.keys(selectedIds).map(s => parseInt(s, 10))
+            }
 
             readonly property var filteredItems: {
                 let result = allItems
@@ -251,6 +279,7 @@ ApplicationWindow {
                 RowLayout {
                     anchors.fill: parent
                     spacing: 0
+                    visible: !catalogPage.selectionMode
 
                     ToolButton {
                         text: "←"
@@ -273,6 +302,11 @@ ApplicationWindow {
                         onClicked: homebrewExportDialog.open()
                     }
                     ToolButton {
+                        visible: !window.isNarrow
+                        text: qsTr("Select")
+                        onClicked: catalogPage.enterSelectionMode()
+                    }
+                    ToolButton {
                         text: qsTr("+ Add")
                         onClicked: itemDefinitionEditDialog.openCreate()
                     }
@@ -287,6 +321,31 @@ ApplicationWindow {
                             text: qsTr("Export")
                             onTriggered: homebrewExportDialog.open()
                         }
+                        MenuItem {
+                            text: qsTr("Select")
+                            onTriggered: catalogPage.enterSelectionMode()
+                        }
+                    }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    visible: catalogPage.selectionMode
+
+                    ToolButton {
+                        text: qsTr("Cancel")
+                        onClicked: catalogPage.exitSelectionMode()
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("%1 selected").arg(catalogPage.selectedCount)
+                        font.pixelSize: 18
+                    }
+                    ToolButton {
+                        text: qsTr("Export selected")
+                        enabled: catalogPage.selectedCount > 0
+                        onClicked: homebrewExportDialog.open()
                     }
                 }
             }
@@ -384,9 +443,36 @@ ApplicationWindow {
                     spacing: 2
 
                     delegate: ItemDelegate {
+                        id: catalogRow
                         width: ListView.view.width
 
+                        readonly property bool isHomebrew: modelData.source === Enums.ItemSource.Homebrew
+                        readonly property bool selectable: catalogPage.selectionMode && isHomebrew
+
                         contentItem: RowLayout {
+                            Item {
+                                Layout.preferredWidth: 24
+                                Layout.preferredHeight: 24
+                                visible: catalogPage.selectionMode
+
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 18; height: 18
+                                    radius: 2
+                                    visible: catalogRow.selectable
+                                    border.color: Material.foreground
+                                    border.width: 2
+                                    color: catalogPage.isSelected(modelData.id) ? Material.accent : "transparent"
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "✓"
+                                        color: "white"
+                                        font.bold: true
+                                        visible: catalogPage.isSelected(modelData.id)
+                                    }
+                                }
+                            }
                             Label {
                                 text: (modelData.is_container ? "📦 " : "") + modelData.name
                                 Layout.fillWidth: true
@@ -411,6 +497,7 @@ ApplicationWindow {
                             }
                             OverflowMenuButton {
                                 visible: modelData.source === Enums.ItemSource.Homebrew
+                                          && !catalogPage.selectionMode
                                 MenuItem {
                                     text: qsTr("Edit")
                                     onTriggered: itemDefinitionEditDialog.openEdit(modelData)
@@ -425,7 +512,12 @@ ApplicationWindow {
                             }
                         }
 
-                        onClicked: itemDefinitionViewDialog.openFor(modelData)
+                        onClicked: {
+                            if (catalogRow.selectable)
+                                catalogPage.toggleSelection(modelData.id)
+                            else
+                                itemDefinitionViewDialog.openFor(modelData)
+                        }
                     }
                 }
             }
@@ -671,10 +763,19 @@ ApplicationWindow {
         defaultSuffix: "json"
 
         onAccepted: {
-            if (DB.exportHomebrewPack(selectedFile))
-                notifyInfo(qsTr("Exported homebrew pack to %1").arg(selectedFile))
-            else
+            const ids = (stack.currentItem && stack.currentItem.selectionMode)
+                      ? stack.currentItem.selectedIdsArray()
+                      : []
+            if (DB.exportHomebrewPack(selectedFile, ids)) {
+                const label = ids.length > 0
+                    ? qsTr("Exported %1 item(s) to %2").arg(ids.length).arg(selectedFile)
+                    : qsTr("Exported homebrew pack to %1").arg(selectedFile)
+                notifyInfo(label)
+                if (stack.currentItem && stack.currentItem.selectionMode)
+                    stack.currentItem.exitSelectionMode()
+            } else {
                 notifyError(DB.lastError() || qsTr("Export failed."))
+            }
         }
     }
 
