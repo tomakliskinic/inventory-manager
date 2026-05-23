@@ -27,8 +27,15 @@ qt_add_qml_module(appinventoryManager
         ItemDefinitionViewDialog.qml
         ItemDefinitionEditDialog.qml
         CharacterDetailPage.qml
+        CharacterEditDialog.qml
+        CoinsDialog.qml
+        AddItemDialog.qml
+        InventoryItemEditDialog.qml
+        ItemMoveDialog.qml
+        ItemRemoveContainerDialog.qml
         Utils.qml
         OverflowMenuButton.qml
+        InventoryRowDelegate.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp

@@ -507,78 +507,17 @@ Page {
 
                     Repeater {
                         model: root.filteredItems
-                        delegate: ItemDelegate {
-                            id: rowDelegate
-                            Layout.fillWidth: true
-                            padding: 4
-                            hoverEnabled: true
-                            onClicked: {
-                                if (modelData.is_container)
-                                    root.toggleContainerExpansion(modelData.id)
+                        delegate: InventoryRowDelegate {
+                            aggregateWeightFn: root.aggregateWeight
+                            onToggleExpansionRequested: id => root.toggleContainerExpansion(id)
+                            onViewInfoRequested: id => root.viewItemDefinitionRequested(id)
+                            onEditRequested: item => root.editItemRequested(item)
+                            onMoveRequested: item => root.moveItemRequested(item, root.character.id)
+                            onRemoveRequested: item => {
+                                if (item.is_container && DB.getContainerContents(item.id).length > 0)
+                                    root.removeContainerRequested(item, root.character.id)
                                 else
-                                    root.viewItemDefinitionRequested(modelData.item_id)
-                            }
-                            background: Rectangle {
-                                color: {
-                                    if (rowDelegate.pressed) return Qt.rgba(0, 0, 0, 0.12)
-                                    if (rowDelegate.hovered) return Qt.rgba(0, 0, 0, 0.06)
-                                    return "transparent"
-                                }
-                            }
-
-                            contentItem: RowLayout {
-                                Item {
-                                    Layout.preferredWidth: modelData.depth * 20
-                                    visible: modelData.depth > 0
-                                }
-                                Label {
-                                    text: (modelData.is_container ? "📦 " : "")
-                                          + (modelData.custom_name || modelData.item_name)
-                                          + (modelData.is_equipped ? " ✓" : "")
-                                    Layout.fillWidth: true
-                                    elide: Text.ElideRight
-                                }
-                                Label {
-                                    text: qsTr("×%1").arg(modelData.quantity)
-                                    opacity: 0.7
-                                    Layout.preferredWidth: 40
-                                    horizontalAlignment: Text.AlignRight
-                                }
-                                Label {
-                                    text: {
-                                        const own = (modelData.weight_lb * modelData.quantity).toFixed(1)
-                                        if (!modelData.is_container) return qsTr("%1 lb").arg(own)
-                                        const agg = root.aggregateWeight(modelData).toFixed(1)
-                                        if (agg === own) return qsTr("%1 lb").arg(own)
-                                        return qsTr("%1 (%2) lb").arg(own).arg(agg)
-                                    }
-                                    opacity: 0.7
-                                    Layout.preferredWidth: 90
-                                    horizontalAlignment: Text.AlignRight
-                                }
-                                OverflowMenuButton {
-                                    MenuItem {
-                                        text: qsTr("View info")
-                                        onTriggered: root.viewItemDefinitionRequested(modelData.item_id)
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Edit")
-                                        onTriggered: root.editItemRequested(modelData)
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Move")
-                                        onTriggered: root.moveItemRequested(modelData, root.character.id)
-                                    }
-                                    MenuItem {
-                                        text: qsTr("Remove")
-                                        onTriggered: {
-                                            if (modelData.is_container && DB.getContainerContents(modelData.id).length > 0)
-                                                root.removeContainerRequested(modelData, root.character.id)
-                                            else
-                                                root.removeItemRequested(modelData)
-                                        }
-                                    }
-                                }
+                                    root.removeItemRequested(item)
                             }
                         }
                     }
