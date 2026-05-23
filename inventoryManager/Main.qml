@@ -340,7 +340,6 @@ ApplicationWindow {
                     Label {
                         Layout.fillWidth: true
                         text: qsTr("%1 selected").arg(catalogPage.selectedCount)
-                        font.pixelSize: 18
                     }
                     ToolButton {
                         text: qsTr("Export selected")
@@ -427,10 +426,22 @@ ApplicationWindow {
 
                 Label {
                     Layout.fillWidth: true
-                    visible: catalogPage.filteredItems.length === 0
-                    text: catalogPage.allItems.length === 0
-                        ? qsTr("No items in catalog")
-                        : qsTr("No items match.")
+                    text: {
+                        const total = catalogPage.allItems.length
+                        const shown = catalogPage.filteredItems.length
+                        const homebrew = catalogPage.allItems
+                            .filter(i => i.source === Enums.ItemSource.Homebrew).length
+
+                        if (total === 0) return qsTr("No items in catalog")
+                        if (shown === 0) return qsTr("No items match (%1 total)").arg(total)
+
+                        const suffix = homebrew > 0
+                            ? qsTr(" · %1 homebrew").arg(homebrew)
+                            : ""
+                        return shown === total
+                            ? qsTr("%1 items").arg(total) + suffix
+                            : qsTr("%1 of %2 items").arg(shown).arg(total) + suffix
+                    }
                     opacity: 0.5
                     horizontalAlignment: Text.AlignHCenter
                 }
