@@ -2,7 +2,7 @@
 
 A cross-platform desktop and mobile application for managing character inventories in compliance with Dungeons & Dragons 5th Edition rules. Built with Qt 6.
 
-## Overv
+## Overview
 This application lets players create and manage characters and their inventories, with automatic calculations for weight, carry capacity, and other D&D 5E-defined statistics. All data updates dynamically with every inventory change.
 
 ## Features
@@ -27,11 +27,12 @@ This application lets players create and manage characters and their inventories
 - Persistent storage using a local **SQLite** database with referential integrity (FK constraints across relations)
 - Seeded SRD catalog of 100+ items (Weapons, Armor, Gear, Tools, Magic) available from first launch
 - **JSON export/import of characters** — single or all — for backups and transfer between devices
-- **JSON export/import of Homebrew item packs** so custom items can be shared across installs
-- Import paths validate structure, skip name conflicts with a warning, and wrap multi-step writes in a transaction
+- **JSON export/import of Homebrew item packs** so custom items can be shared across installs; selectively export only a chosen subset of homebrew items
+- Import paths validate structure, skip name conflicts with a warning, and wrap multi-step writes in a transaction; character import skips re-imports of identical character data so duplicate-name characters with different contents still come through as new entries
 
 ### Cross-Platform Support
 - Responsive UI built with **QML**, adapted for different screen sizes (header overflow menus and three-row search bars on narrow phones)
+- Light and dark themes with the choice persisted across launches
 - Runs on **Windows desktop**, **Linux desktop**, and **Android**
 - Custom Android packaging: app icon, splash screen, portrait lock, exit-clears-recents
 

@@ -1,11 +1,23 @@
 ## Changelog
 
+### 2026-05-24
+- Dark mode toggle (sun/moon button in the character list header) persisted across launches
+- Page toolbar stays Material Indigo with white text in both themes so the top banner reads consistently
+- Modal dialog scrim is a constant semi-transparent black so the page behind a dialog stays dark in dark mode instead of washing to gray
+- Inventory row hover/press and the weight bar background adapt to the active theme
+- Export and import paths go through Android's Storage Access Framework, so saves and loads work correctly on Android 11 and later
+- Character import skips entries that already exist by exact-content match; duplicate names with different contents still come in as new entries; after import a banner lists the skipped names
+
 ### 2026-05-23
 - Cost and value formatting helpers extracted into a shared piece so every page uses one definition
 - Narrow-screen detection extracted into a single window-level property reused by every page header
 - ... overflow menu (used on rows and headers) extracted into a reusable piece that handles right-alignment and flip-upward when near the screen edge
 - Character edit, coins editor, add item, inventory item editor, move item, and remove-container dialogs each reorganized as self-contained pieces extracted from the main window
 - Inventory row layout reorganized as a reusable piece extracted from the character detail page
+- Select multiple homebrew items in the catalog and export only the selected subset to JSON
+- Catalog status line shows the item count, filter context, and homebrew breakdown
+- Character list empty state shows a scroll icon and a hint to tap + to create the first character
+- Inventory page reads window narrow-state through a null-safe property so navigating back to the character list no longer prints binding errors
 
 ### 2026-05-22
 - Custom Android app identity: treasure-chest icon at all densities, "Inventory Manager" label in the launcher and recents, splash screen during startup
