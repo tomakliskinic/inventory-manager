@@ -12,6 +12,7 @@ Dialog {
 
     title: qsTr("Edit Coins")
     modal: true
+    Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 360) - 32, 360)
     standardButtons: Dialog.Ok | Dialog.Cancel

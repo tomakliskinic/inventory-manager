@@ -11,6 +11,8 @@
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+    QGuiApplication::setOrganizationName("inventoryManager");
+    QGuiApplication::setApplicationName("inventoryManager");
     QQuickStyle::setStyle("Material");
 
     DatabaseManager db;

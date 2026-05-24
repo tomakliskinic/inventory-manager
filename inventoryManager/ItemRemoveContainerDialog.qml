@@ -14,6 +14,7 @@ Dialog {
 
     title: qsTr("Remove Container?")
     modal: true
+    Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 460) - 32, 460)
 

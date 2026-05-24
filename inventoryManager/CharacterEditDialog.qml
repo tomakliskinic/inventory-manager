@@ -17,6 +17,10 @@ Dialog {
     height: Math.min((parent ? parent.height : 560) - 60, 560)
     standardButtons: Dialog.Ok | Dialog.Cancel
 
+    Overlay.modal: Rectangle {
+        color: "#80000000"
+    }
+
     ScrollView {
         anchors.fill: parent
         contentWidth: availableWidth

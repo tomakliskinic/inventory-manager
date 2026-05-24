@@ -24,6 +24,7 @@ Dialog {
 
     title: item ? item.name : ""
     modal: true
+    Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 480) - 32, 480)
     height: {

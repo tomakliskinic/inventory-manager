@@ -27,11 +27,8 @@ ItemDelegate {
     }
 
     background: Rectangle {
-        color: {
-            if (root.pressed) return Qt.rgba(0, 0, 0, 0.12)
-            if (root.hovered) return Qt.rgba(0, 0, 0, 0.06)
-            return "transparent"
-        }
+        color: Material.foreground
+        opacity: root.pressed ? 0.12 : root.hovered ? 0.06 : 0
     }
 
     contentItem: RowLayout {

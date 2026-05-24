@@ -195,6 +195,8 @@ Page {
     Component.onCompleted: Qt.callLater(refresh)
 
     header: ToolBar {
+        Material.theme: Material.Light
+
         RowLayout {
             anchors.fill: parent
             spacing: 0
@@ -367,7 +369,8 @@ Page {
 
                         Rectangle {
                             anchors.fill: parent
-                            color: Qt.rgba(0, 0, 0, 0.1)
+                            color: Material.foreground
+                            opacity: 0.1
                             radius: 3
                         }
                         Rectangle {

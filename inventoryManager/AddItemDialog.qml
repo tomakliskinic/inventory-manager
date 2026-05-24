@@ -29,6 +29,7 @@ Dialog {
 
     title: qsTr("Add Item")
     modal: true
+    Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 460) - 32, 460)
     standardButtons: Dialog.Ok | Dialog.Cancel

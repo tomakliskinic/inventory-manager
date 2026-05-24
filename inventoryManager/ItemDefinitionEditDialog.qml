@@ -30,6 +30,7 @@ Dialog {
 
     title: editingId === -1 ? qsTr("New Item") : qsTr("Edit Item")
     modal: true
+    Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min((parent ? parent.width : 500) - 32, 500)
     height: Math.min((parent ? parent.height : 620) - 60, 620)

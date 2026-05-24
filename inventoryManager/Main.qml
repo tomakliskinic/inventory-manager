@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtCore
 import inventoryManager
 
 ApplicationWindow {
@@ -12,8 +13,13 @@ ApplicationWindow {
     visible: true
     title: qsTr("Inventory Manager")
 
-    Material.theme: Material.Light
+    Material.theme: settings.darkMode ? Material.Dark : Material.Light
     Material.accent: Material.Indigo
+
+    Settings {
+        id: settings
+        property bool darkMode: false
+    }
 
     property var characters: []
     property bool confirmedQuit: false
@@ -89,6 +95,8 @@ ApplicationWindow {
 
         Page {
             header: ToolBar {
+                Material.theme: Material.Light
+
                 Label {
                     anchors.centerIn: parent
                     text: qsTr("Characters")
@@ -98,6 +106,11 @@ ApplicationWindow {
                 RowLayout {
                     anchors.fill: parent
                     Item { Layout.fillWidth: true }
+                    ToolButton {
+                        text: settings.darkMode ? "☀" : "🌙"
+                        font.pixelSize: 18
+                        onClicked: settings.darkMode = !settings.darkMode
+                    }
                     ToolButton {
                         visible: !window.isNarrow
                         text: qsTr("Items")
@@ -292,6 +305,8 @@ ApplicationWindow {
             Component.onCompleted: refresh()
 
             header: ToolBar {
+                Material.theme: Material.Light
+
                 RowLayout {
                     anchors.fill: parent
                     spacing: 0
@@ -596,6 +611,7 @@ ApplicationWindow {
 
         title: qsTr("Delete Character?")
         modal: true
+        Overlay.modal: Rectangle { color: "#80000000" }
         anchors.centerIn: parent
         width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Yes | Dialog.No
@@ -626,6 +642,7 @@ ApplicationWindow {
         id: quitConfirm
         title: qsTr("Exit?")
         modal: true
+        Overlay.modal: Rectangle { color: "#80000000" }
         anchors.centerIn: parent
         width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Yes | Dialog.No
@@ -665,6 +682,7 @@ ApplicationWindow {
 
         title: qsTr("Remove Item?")
         modal: true
+        Overlay.modal: Rectangle { color: "#80000000" }
         anchors.centerIn: parent
         width: Math.min(parent.width - 32, 360)
         standardButtons: Dialog.Yes | Dialog.No
@@ -718,6 +736,7 @@ ApplicationWindow {
 
         title: qsTr("Delete Item?")
         modal: true
+        Overlay.modal: Rectangle { color: "#80000000" }
         anchors.centerIn: parent
         width: Math.min(parent.width - 32, 380)
         standardButtons: Dialog.Yes | Dialog.No
