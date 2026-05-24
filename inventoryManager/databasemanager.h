@@ -29,6 +29,7 @@ public:
     Q_INVOKABLE bool exportHomebrewPack(const QUrl &fileUrl, const QVariantList &itemIds = {});
     Q_INVOKABLE int importHomebrewPack(const QUrl &fileUrl);
     Q_INVOKABLE QStringList lastSkippedItems() const;
+    Q_INVOKABLE QStringList lastSkippedCharacters() const;
 
     Q_INVOKABLE QStringList creatureSizeNames() const;
 
@@ -88,6 +89,7 @@ private:
     bool m_initialized = false;
     QString m_lastError;
     QStringList m_lastSkippedItems;
+    QStringList m_lastSkippedCharacters;
 };
 
 #endif // DATABASEMANAGER_H

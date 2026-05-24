@@ -796,7 +796,12 @@ ApplicationWindow {
                 notifyError(DB.lastError() || qsTr("Import failed."))
             } else {
                 refresh()
-                notifyInfo(qsTr("Imported %1 character(s).").arg(count))
+                const skipped = DB.lastSkippedCharacters()
+                if (skipped.length > 0)
+                    notifyInfo(qsTr("Imported %1 character(s); skipped %2 already in your list: %3")
+                        .arg(count).arg(skipped.length).arg(skipped.join(", ")))
+                else
+                    notifyInfo(qsTr("Imported %1 character(s).").arg(count))
             }
         }
     }

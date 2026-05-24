@@ -19,6 +19,12 @@
 #include <QRegularExpression>
 #include <functional>
 
+static QString urlToOpenablePath(const QUrl &url)
+{
+    const QString local = url.toLocalFile();
+    return local.isEmpty() ? url.toString() : local;
+}
+
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {}
 
 DatabaseManager::~DatabaseManager()
@@ -174,7 +180,7 @@ bool DatabaseManager::exportAllToFile(const QUrl &fileUrl)
     }
     root["characters"] = charactersArray;
 
-    return writeJsonObject(root, fileUrl.toLocalFile());
+    return writeJsonObject(root, urlToOpenablePath(fileUrl));
 }
 
 bool DatabaseManager::exportCharacterToFile(int characterId, const QUrl &fileUrl)
@@ -192,12 +198,14 @@ bool DatabaseManager::exportCharacterToFile(int characterId, const QUrl &fileUrl
     charactersArray.append(character);
     root["characters"] = charactersArray;
 
-    return writeJsonObject(root, fileUrl.toLocalFile());
+    return writeJsonObject(root, urlToOpenablePath(fileUrl));
 }
 
 int DatabaseManager::importFromFile(const QUrl &fileUrl)
 {
-    const QString path = fileUrl.toLocalFile();
+    m_lastSkippedCharacters.clear();
+
+    const QString path = urlToOpenablePath(fileUrl);
     if (path.isEmpty()) {
         reportError(QStringLiteral("importFromFile failed: invalid file path"));
         return -1;
@@ -239,8 +247,26 @@ int DatabaseManager::importFromFile(const QUrl &fileUrl)
         if (!cv.isObject()) continue;
         const QJsonObject c = cv.toObject();
 
+        const QString incomingName = c["name"].toString();
+        QSqlQuery sameName(m_db);
+        sameName.prepare("SELECT id FROM characters WHERE name = :name");
+        sameName.bindValue(":name", incomingName);
+        bool alreadyPresent = false;
+        if (sameName.exec()) {
+            while (sameName.next()) {
+                if (buildCharacterJson(sameName.value(0).toInt()) == c) {
+                    alreadyPresent = true;
+                    break;
+                }
+            }
+        }
+        if (alreadyPresent) {
+            m_lastSkippedCharacters.append(incomingName);
+            continue;
+        }
+
         QVariantMap charData;
-        charData["name"] = c["name"].toString();
+        charData["name"] = incomingName;
         charData["level"] = c["level"].toInt(1);
         charData["strength"] = c["strength"].toInt(10);
         charData["size"] = c["size"].toInt(static_cast<int>(Enums::CreatureSize::Medium));
@@ -422,7 +448,12 @@ bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList
     QJsonObject root;
     root["items"] = itemsArray;
 
-    return writeJsonObject(root, fileUrl.toLocalFile());
+    return writeJsonObject(root, urlToOpenablePath(fileUrl));
+}
+
+QStringList DatabaseManager::lastSkippedCharacters() const
+{
+    return m_lastSkippedCharacters;
 }
 
 QStringList DatabaseManager::lastSkippedItems() const
@@ -434,7 +465,7 @@ int DatabaseManager::importHomebrewPack(const QUrl &fileUrl)
 {
     m_lastSkippedItems.clear();
 
-    const QString path = fileUrl.toLocalFile();
+    const QString path = urlToOpenablePath(fileUrl);
     if (path.isEmpty()) {
         reportError(QStringLiteral("importHomebrewPack failed: invalid file path"));
         return -1;
