@@ -27,7 +27,9 @@ public:
     Q_INVOKABLE bool exportCharacterToFile(int characterId, const QUrl &fileUrl);
     Q_INVOKABLE int importFromFile(const QUrl &fileUrl);
     Q_INVOKABLE bool exportHomebrewPack(const QUrl &fileUrl, const QVariantList &itemIds = {});
+    Q_INVOKABLE QString exportHomebrewPackJson(const QVariantList &itemIds = {});
     Q_INVOKABLE int importHomebrewPack(const QUrl &fileUrl);
+    Q_INVOKABLE int importHomebrewPackFromJson(const QString &json);
     Q_INVOKABLE QStringList lastSkippedItems() const;
     Q_INVOKABLE QStringList lastSkippedCharacters() const;
 
@@ -72,6 +74,7 @@ private:
     void reportError(const QString &message);
 
     QJsonObject buildCharacterJson(int characterId);
+    bool buildHomebrewPack(const QVariantList &itemIds, QJsonObject &out);
     bool writeJsonObject(const QJsonObject &root, const QString &path);
 
     bool executeSql(const QString &sql);

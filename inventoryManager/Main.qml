@@ -83,6 +83,8 @@ ApplicationWindow {
                  && !itemDefinitionViewDialog.opened
                  && !itemDefinitionEditDialog.opened
                  && !catalogDeleteConfirm.opened
+                 && !peerDiscoveryDialog.opened
+                 && !incomingShareDialog.opened
                  && !quitConfirm.opened
         onActivated: {
             if (stack.depth > 1) stack.pop()
@@ -338,6 +340,11 @@ ApplicationWindow {
                         onClicked: catalogPage.enterSelectionMode()
                     }
                     ToolButton {
+                        visible: !window.isNarrow
+                        text: qsTr("Peers")
+                        onClicked: peerDiscoveryDialog.open()
+                    }
+                    ToolButton {
                         text: qsTr("+ Add")
                         onClicked: itemDefinitionEditDialog.openCreate()
                     }
@@ -356,6 +363,10 @@ ApplicationWindow {
                             text: qsTr("Select")
                             onTriggered: catalogPage.enterSelectionMode()
                         }
+                        MenuItem {
+                            text: qsTr("Peers")
+                            onTriggered: peerDiscoveryDialog.open()
+                        }
                     }
                 }
 
@@ -371,6 +382,19 @@ ApplicationWindow {
                     Label {
                         Layout.fillWidth: true
                         text: qsTr("%1 selected").arg(catalogPage.selectedCount)
+                    }
+                    ToolButton {
+                        text: qsTr("Share")
+                        enabled: catalogPage.selectedCount > 0
+                        onClicked: {
+                            const ids = catalogPage.selectedIdsArray()
+                            const json = DB.exportHomebrewPackJson(ids)
+                            if (!json || json.length === 0) {
+                                notifyError(DB.lastError() || qsTr("Couldn't build pack."))
+                                return
+                            }
+                            peerDiscoveryDialog.openForShare(json, ids.length)
+                        }
                     }
                     ToolButton {
                         text: qsTr("Export selected")
@@ -728,6 +752,42 @@ ApplicationWindow {
         id: itemDefinitionEditDialog
         onSaveFailed: msg => notifyError(msg)
         onSaved: refreshCurrentDetail()
+    }
+
+    PeerDiscoveryDialog {
+        id: peerDiscoveryDialog
+        onPickedForShare: (uuid, name, count) => {
+            notifyInfo(qsTr("Sending %1 item(s) to %2…").arg(count).arg(name || uuid))
+            if (stack.currentItem && stack.currentItem.exitSelectionMode)
+                stack.currentItem.exitSelectionMode()
+        }
+    }
+
+    IncomingShareDialog {
+        id: incomingShareDialog
+        onImportCompleted: (imported, skipped) => {
+            if (stack.currentItem && stack.currentItem.refresh)
+                stack.currentItem.refresh()
+            if (skipped.length === 0)
+                notifyInfo(qsTr("Imported %1 item(s).").arg(imported))
+            else
+                notifyInfo(qsTr("Imported %1, skipped %2 (already exist): %3")
+                    .arg(imported).arg(skipped.length).arg(skipped.join(", ")))
+        }
+        onImportFailed: reason => notifyError(reason)
+    }
+
+    Connections {
+        target: Net
+        function onShareSent(uuid, name) {
+            notifyInfo(qsTr("Shared with %1").arg(name || uuid))
+        }
+        function onShareFailed(uuid, reason) {
+            notifyError(qsTr("Share failed: %1").arg(reason))
+        }
+        function onShareReceived(sender, count, packJson) {
+            incomingShareDialog.openFor(sender, count, packJson)
+        }
     }
 
     Dialog {

@@ -6,6 +6,7 @@
 #include <QDebug>
 
 #include "databasemanager.h"
+#include "networkmanager.h"
 #include "enums.h"
 
 int main(int argc, char *argv[])
@@ -23,7 +24,11 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    NetworkManager net;
+    net.startDiscovery();
+
     qmlRegisterSingletonInstance("inventoryManager", 1, 0, "DB", &db);
+    qmlRegisterSingletonInstance("inventoryManager", 1, 0, "Net", &net);
     qmlRegisterUncreatableMetaObject(Enums::staticMetaObject, "inventoryManager", 1, 0, "Enums", "Enums is a namespace");
 
     QQmlApplicationEngine engine;

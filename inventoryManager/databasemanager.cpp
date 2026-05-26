@@ -358,7 +358,7 @@ int DatabaseManager::importFromFile(const QUrl &fileUrl)
     return imported;
 }
 
-bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList &itemIds)
+bool DatabaseManager::buildHomebrewPack(const QVariantList &itemIds, QJsonObject &out)
 {
     QSqlQuery q(m_db);
     QString sql = QStringLiteral(
@@ -380,7 +380,7 @@ bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList
     for (int i = 0; i < itemIds.size(); ++i)
         q.bindValue(QStringLiteral(":id%1").arg(i), itemIds[i].toInt());
     if (!q.exec()) {
-        reportError(QStringLiteral("exportHomebrewPack failed: %1").arg(q.lastError().text()));
+        reportError(QStringLiteral("buildHomebrewPack failed: %1").arg(q.lastError().text()));
         return false;
     }
 
@@ -445,10 +445,24 @@ bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList
         itemsArray.append(item);
     }
 
-    QJsonObject root;
-    root["items"] = itemsArray;
+    out["items"] = itemsArray;
+    return true;
+}
 
+bool DatabaseManager::exportHomebrewPack(const QUrl &fileUrl, const QVariantList &itemIds)
+{
+    QJsonObject root;
+    if (!buildHomebrewPack(itemIds, root))
+        return false;
     return writeJsonObject(root, urlToOpenablePath(fileUrl));
+}
+
+QString DatabaseManager::exportHomebrewPackJson(const QVariantList &itemIds)
+{
+    QJsonObject root;
+    if (!buildHomebrewPack(itemIds, root))
+        return QString();
+    return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
 }
 
 QStringList DatabaseManager::lastSkippedCharacters() const
@@ -463,24 +477,30 @@ QStringList DatabaseManager::lastSkippedItems() const
 
 int DatabaseManager::importHomebrewPack(const QUrl &fileUrl)
 {
-    m_lastSkippedItems.clear();
-
     const QString path = urlToOpenablePath(fileUrl);
     if (path.isEmpty()) {
+        m_lastSkippedItems.clear();
         reportError(QStringLiteral("importHomebrewPack failed: invalid file path"));
         return -1;
     }
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
+        m_lastSkippedItems.clear();
         reportError(QStringLiteral("importHomebrewPack failed: cannot read %1").arg(path));
         return -1;
     }
     const QByteArray data = file.readAll();
     file.close();
+    return importHomebrewPackFromJson(QString::fromUtf8(data));
+}
+
+int DatabaseManager::importHomebrewPackFromJson(const QString &json)
+{
+    m_lastSkippedItems.clear();
 
     QJsonParseError err;
-    const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8(), &err);
     if (err.error != QJsonParseError::NoError) {
         reportError(QStringLiteral("importHomebrewPack failed: %1").arg(err.errorString()));
         return -1;
