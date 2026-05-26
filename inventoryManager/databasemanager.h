@@ -65,6 +65,11 @@ public:
     Q_INVOKABLE QVariantList getInventoryTree(int characterId);
     Q_INVOKABLE QVariantList getContainerContents(int inventoryItemId);
 
+    Q_INVOKABLE QString buildInventoryItemShareJson(int inventoryItemId, int quantity);
+    Q_INVOKABLE int importInventoryItemFromShare(const QString &payloadJson, int characterId);
+    Q_INVOKABLE bool commitOutgoingShare(int inventoryItemId, int sharedQuantity);
+    Q_INVOKABLE bool itemDefinitionExistsByName(const QString &name);
+
     Q_INVOKABLE double getTotalWeight(int characterId);
     Q_INVOKABLE double getCoinWeight(int characterId);
     Q_INVOKABLE double getCarryingCapacity(int characterId);
@@ -75,6 +80,8 @@ private:
 
     QJsonObject buildCharacterJson(int characterId);
     bool buildHomebrewPack(const QVariantList &itemIds, QJsonObject &out);
+    QJsonObject buildInventoryItemShareNode(int inventoryItemId, int overrideQuantity = -1);
+    int importInventoryItemNode(const QJsonObject &node, int characterId, int parentId);
     bool writeJsonObject(const QJsonObject &root, const QString &path);
 
     bool executeSql(const QString &sql);

@@ -1610,6 +1610,276 @@ QVariantList DatabaseManager::getContainerContents(int inventoryItemId)
     return list;
 }
 
+QJsonObject DatabaseManager::buildInventoryItemShareNode(int inventoryItemId, int overrideQuantity)
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT ii.item_id, ii.quantity, ii.custom_name, ii.notes, ii.is_equipped, "
+              "idef.name, idef.item_type, idef.weight_lb, idef.cost, idef.description, "
+              "idef.is_container, idef.container_weight_capacity, idef.fixed_weight, "
+              "idef.rarity, idef.requires_attunement "
+              "FROM inventory_items ii "
+              "JOIN item_definitions idef ON ii.item_id = idef.id "
+              "WHERE ii.id = :id");
+    q.bindValue(":id", inventoryItemId);
+    if (!q.exec() || !q.next())
+        return QJsonObject();
+
+    const int itemId = q.value("item_id").toInt();
+    const int itemType = q.value("item_type").toInt();
+    const int isContainer = q.value("is_container").toInt();
+    const int rowQty = q.value("quantity").toInt();
+    const int sharedQty = overrideQuantity > 0 ? overrideQuantity : rowQty;
+
+    QJsonObject def;
+    def["name"] = q.value("name").toString();
+    def["item_type"] = itemType;
+    def["weight_lb"] = q.value("weight_lb").toDouble();
+    const QString cost = q.value("cost").toString();
+    if (!cost.isEmpty()) def["cost"] = cost;
+    const QString description = q.value("description").toString();
+    if (!description.isEmpty()) def["description"] = description;
+    def["is_container"] = isContainer;
+    if (!q.value("container_weight_capacity").isNull())
+        def["container_weight_capacity"] = q.value("container_weight_capacity").toDouble();
+    if (!q.value("fixed_weight").isNull())
+        def["fixed_weight"] = q.value("fixed_weight").toDouble();
+    if (!q.value("rarity").isNull())
+        def["rarity"] = q.value("rarity").toInt();
+    def["requires_attunement"] = q.value("requires_attunement").toInt();
+
+    if (itemType == static_cast<int>(Enums::ItemType::Weapon)) {
+        const QVariantMap wd = getWeaponDetails(itemId);
+        if (!wd.isEmpty()) {
+            QJsonObject wj;
+            wj["category"]    = wd.value("category").toInt();
+            wj["range_type"]  = wd.value("range_type").toInt();
+            wj["damage_dice"] = wd.value("damage_dice").toString();
+            wj["damage_type"] = wd.value("damage_type").toInt();
+            wj["properties"]  = wd.value("properties").toString();
+            const QString mastery = wd.value("mastery").toString();
+            if (!mastery.isEmpty()) wj["mastery"] = mastery;
+            const QString ammo = wd.value("ammunition_type").toString();
+            if (!ammo.isEmpty()) wj["ammunition_type"] = ammo;
+            def["weapon_details"] = wj;
+        }
+    } else if (itemType == static_cast<int>(Enums::ItemType::Armor)) {
+        const QVariantMap ad = getArmorDetails(itemId);
+        if (!ad.isEmpty()) {
+            QJsonObject aj;
+            aj["category"] = ad.value("category").toInt();
+            aj["ac_base"]  = ad.value("ac_base").toInt();
+            if (!ad.value("ac_dex_max").isNull())
+                aj["ac_dex_max"] = ad.value("ac_dex_max").toInt();
+            if (!ad.value("strength_required").isNull())
+                aj["strength_required"] = ad.value("strength_required").toInt();
+            aj["stealth_disadvantage"] = ad.value("stealth_disadvantage").toInt();
+            if (!ad.value("don_minutes").isNull())
+                aj["don_minutes"] = ad.value("don_minutes").toInt();
+            if (!ad.value("doff_minutes").isNull())
+                aj["doff_minutes"] = ad.value("doff_minutes").toInt();
+            def["armor_details"] = aj;
+        }
+    }
+
+    QJsonObject instance;
+    instance["quantity"] = sharedQty;
+    const QString customName = q.value("custom_name").toString();
+    if (!customName.isEmpty()) instance["custom_name"] = customName;
+    const QString notes = q.value("notes").toString();
+    if (!notes.isEmpty()) instance["notes"] = notes;
+    instance["is_equipped"] = q.value("is_equipped").toInt();
+
+    QJsonArray children;
+    if (isContainer) {
+        const QVariantList contents = getContainerContents(inventoryItemId);
+        for (const QVariant &c : contents) {
+            const int childId = c.toMap().value("id").toInt();
+            const QJsonObject childNode = buildInventoryItemShareNode(childId);
+            if (!childNode.isEmpty())
+                children.append(childNode);
+        }
+    }
+
+    QJsonObject node;
+    node["definition"] = def;
+    node["instance"] = instance;
+    if (!children.isEmpty())
+        node["children"] = children;
+    return node;
+}
+
+QString DatabaseManager::buildInventoryItemShareJson(int inventoryItemId, int quantity)
+{
+    const QJsonObject node = buildInventoryItemShareNode(inventoryItemId, quantity);
+    if (node.isEmpty()) {
+        reportError(QStringLiteral("buildInventoryItemShareJson: item %1 not found").arg(inventoryItemId));
+        return QString();
+    }
+    QJsonObject envelope;
+    envelope["kind"] = "inventory_item_share";
+    envelope["v"] = 1;
+    envelope["root"] = node;
+    return QString::fromUtf8(QJsonDocument(envelope).toJson(QJsonDocument::Compact));
+}
+
+int DatabaseManager::importInventoryItemNode(const QJsonObject &node, int characterId, int parentId)
+{
+    const QJsonObject def = node.value("definition").toObject();
+    const QJsonObject instance = node.value("instance").toObject();
+    const QString defName = def.value("name").toString().trimmed();
+    if (defName.isEmpty()) {
+        reportError("importInventoryItemNode: definition missing name");
+        return -1;
+    }
+
+    QSqlQuery lookup(m_db);
+    lookup.prepare("SELECT id FROM item_definitions WHERE name = :n");
+    lookup.bindValue(":n", defName);
+    if (!lookup.exec()) {
+        reportError(QStringLiteral("importInventoryItemNode: %1").arg(lookup.lastError().text()));
+        return -1;
+    }
+
+    int defId = -1;
+    if (lookup.next()) {
+        defId = lookup.value(0).toInt();
+    } else {
+        QVariantMap itemData;
+        itemData["name"] = defName;
+        itemData["item_type"] = def.value("item_type").toInt();
+        itemData["weight_lb"] = def.value("weight_lb").toDouble();
+        if (def.contains("cost"))        itemData["cost"]        = def.value("cost").toString();
+        if (def.contains("description")) itemData["description"] = def.value("description").toString();
+        itemData["is_container"] = def.value("is_container").toInt();
+        if (def.contains("container_weight_capacity"))
+            itemData["container_weight_capacity"] = def.value("container_weight_capacity").toDouble();
+        if (def.contains("fixed_weight"))
+            itemData["fixed_weight"] = def.value("fixed_weight").toDouble();
+        if (def.contains("rarity"))
+            itemData["rarity"] = def.value("rarity").toInt();
+        itemData["requires_attunement"] = def.value("requires_attunement").toInt();
+
+        defId = createItemDefinition(itemData);
+        if (defId < 0)
+            return -1;
+
+        const int itemType = itemData.value("item_type").toInt();
+        if (itemType == static_cast<int>(Enums::ItemType::Weapon) && def.contains("weapon_details")) {
+            const QJsonObject wj = def.value("weapon_details").toObject();
+            QVariantMap wd;
+            wd["category"]    = wj.value("category").toInt();
+            wd["range_type"]  = wj.value("range_type").toInt();
+            wd["damage_dice"] = wj.value("damage_dice").toString();
+            wd["damage_type"] = wj.value("damage_type").toInt();
+            wd["properties"]  = wj.value("properties").toString("[]");
+            if (wj.contains("mastery"))         wd["mastery"]         = wj.value("mastery").toString();
+            if (wj.contains("ammunition_type")) wd["ammunition_type"] = wj.value("ammunition_type").toString();
+            if (!setWeaponDetails(defId, wd))
+                return -1;
+        } else if (itemType == static_cast<int>(Enums::ItemType::Armor) && def.contains("armor_details")) {
+            const QJsonObject aj = def.value("armor_details").toObject();
+            QVariantMap ad;
+            ad["category"] = aj.value("category").toInt();
+            ad["ac_base"]  = aj.value("ac_base").toInt();
+            if (aj.contains("ac_dex_max"))         ad["ac_dex_max"]         = aj.value("ac_dex_max").toInt();
+            if (aj.contains("strength_required"))  ad["strength_required"]  = aj.value("strength_required").toInt();
+            ad["stealth_disadvantage"] = aj.value("stealth_disadvantage").toInt();
+            if (aj.contains("don_minutes"))   ad["don_minutes"]   = aj.value("don_minutes").toInt();
+            if (aj.contains("doff_minutes"))  ad["doff_minutes"]  = aj.value("doff_minutes").toInt();
+            if (!setArmorDetails(defId, ad))
+                return -1;
+        }
+    }
+
+    const int qty = std::max(1, instance.value("quantity").toInt(1));
+    const int newInvItemId = addInventoryItem(characterId, defId, qty, parentId);
+    if (newInvItemId < 0)
+        return -1;
+
+    if (node.contains("children")) {
+        const QJsonArray children = node.value("children").toArray();
+        for (const QJsonValue &cv : children) {
+            if (!cv.isObject()) continue;
+            if (importInventoryItemNode(cv.toObject(), characterId, newInvItemId) < 0)
+                return -1;
+        }
+    }
+
+    return newInvItemId;
+}
+
+int DatabaseManager::importInventoryItemFromShare(const QString &payloadJson, int characterId)
+{
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(payloadJson.toUtf8(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        reportError(QStringLiteral("importInventoryItemFromShare: invalid JSON: %1").arg(err.errorString()));
+        return -1;
+    }
+    const QJsonObject envelope = doc.object();
+    if (envelope.value("kind").toString() != QLatin1String("inventory_item_share")) {
+        reportError("importInventoryItemFromShare: wrong kind");
+        return -1;
+    }
+    const QJsonObject root = envelope.value("root").toObject();
+    if (root.isEmpty()) {
+        reportError("importInventoryItemFromShare: empty root");
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        reportError("importInventoryItemFromShare: could not begin transaction");
+        return -1;
+    }
+
+    const int rootId = importInventoryItemNode(root, characterId, -1);
+    if (rootId < 0) {
+        m_db.rollback();
+        return -1;
+    }
+
+    if (!m_db.commit()) {
+        reportError(QStringLiteral("importInventoryItemFromShare: commit failed: %1").arg(m_db.lastError().text()));
+        m_db.rollback();
+        return -1;
+    }
+    return rootId;
+}
+
+bool DatabaseManager::commitOutgoingShare(int inventoryItemId, int sharedQuantity)
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT ii.quantity, idef.is_container "
+              "FROM inventory_items ii "
+              "JOIN item_definitions idef ON ii.item_id = idef.id "
+              "WHERE ii.id = :id");
+    q.bindValue(":id", inventoryItemId);
+    if (!q.exec() || !q.next()) {
+        reportError(QStringLiteral("commitOutgoingShare: item %1 not found").arg(inventoryItemId));
+        return false;
+    }
+    const int currentQty = q.value(0).toInt();
+    const bool isContainerRow = q.value(1).toInt() == 1;
+
+    if (isContainerRow || sharedQuantity >= currentQty) {
+        const Enums::RemovalMode mode = isContainerRow
+            ? Enums::RemovalMode::DeleteAll
+            : Enums::RemovalMode::SpillToParent;
+        return removeInventoryItem(inventoryItemId, mode);
+    }
+    QVariantMap data;
+    data["quantity"] = currentQty - sharedQuantity;
+    return updateInventoryItem(inventoryItemId, data);
+}
+
+bool DatabaseManager::itemDefinitionExistsByName(const QString &name)
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT 1 FROM item_definitions WHERE name = :n LIMIT 1");
+    q.bindValue(":n", name.trimmed());
+    return q.exec() && q.next();
+}
+
 double DatabaseManager::getTotalWeight(int characterId)
 {
     QSqlQuery query(m_db);
