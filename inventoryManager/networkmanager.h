@@ -5,6 +5,7 @@
 #include <QString>
 #include <QHash>
 #include <QByteArray>
+#include <QPointer>
 #include <QVariantList>
 
 class QUdpSocket;
@@ -32,6 +33,11 @@ public:
     Q_INVOKABLE void startDiscovery();
     Q_INVOKABLE void stopDiscovery();
     Q_INVOKABLE void sendPackJson(const QString &peerUuid, const QString &packJson);
+    Q_INVOKABLE void sendInventoryItem(const QString &peerUuid,
+                                       const QString &payloadJson,
+                                       int sourceItemId,
+                                       int sharedQuantity);
+    Q_INVOKABLE void respondToItemTransfer(bool accepted);
 
 signals:
     void deviceNameChanged();
@@ -40,6 +46,15 @@ signals:
     void shareSent(const QString &peerUuid, const QString &peerName);
     void shareFailed(const QString &peerUuid, const QString &reason);
     void shareReceived(const QString &senderName, int itemCount, const QString &packJson);
+    void itemTransferReceived(const QString &senderName,
+                              const QString &rootItemName,
+                              const QString &payloadJson);
+    void itemTransferAccepted(const QString &peerUuid,
+                              const QString &peerName,
+                              int sourceItemId,
+                              int sharedQuantity);
+    void itemTransferDeclined(const QString &peerUuid, const QString &peerName);
+    void itemTransferFailed(const QString &peerUuid, const QString &reason);
 
 private slots:
     void onReadyRead();
@@ -58,7 +73,10 @@ private:
 
     QString defaultDeviceName() const;
     void rebuildPeersList();
-    void handleIncomingShare(const QByteArray &data);
+    void handleIncomingMessage(QTcpSocket *sock, const QByteArray &payload);
+    static QByteArray packMessage(const QByteArray &payload);
+    static bool tryExtractMessage(QByteArray &buf, QByteArray &out);
+    void resetOutboundState();
 
     static constexpr quint16 DiscoveryPort = 45454;
     static constexpr int BroadcastIntervalMs = 3000;
@@ -74,9 +92,17 @@ private:
     QUdpSocket *m_socket = nullptr;
     QTcpServer *m_tcpServer = nullptr;
     QHash<QTcpSocket *, QByteArray> m_inboundBuffers;
+    QPointer<QTcpSocket> m_inboundResponseSocket;
     quint16 m_tcpPort = 0;
     QTimer *m_broadcastTimer = nullptr;
     QTimer *m_pruneTimer = nullptr;
+
+    QPointer<QTcpSocket> m_outboundSocket;
+    QString m_outboundPeerUuid;
+    QString m_outboundPeerName;
+    int m_outboundSourceItemId = -1;
+    int m_outboundSharedQty = 0;
+    QByteArray m_outboundResponseBuffer;
 };
 
 #endif // NETWORKMANAGER_H
