@@ -104,6 +104,7 @@ Page {
     signal removeContainerRequested(var item, int characterId)
     signal removeItemRequested(var item)
     signal viewItemDefinitionRequested(int itemId)
+    signal shareItemRequested(var item)
 
     readonly property bool isNarrow: ApplicationWindow.window
                                      ? root.isNarrow
@@ -504,6 +505,7 @@ Page {
                             onViewInfoRequested: id => root.viewItemDefinitionRequested(id)
                             onEditRequested: item => root.editItemRequested(item)
                             onMoveRequested: item => root.moveItemRequested(item, root.character.id)
+                            onShareRequested: item => root.shareItemRequested(item)
                             onRemoveRequested: item => {
                                 if (item.is_container && DB.getContainerContents(item.id).length > 0)
                                     root.removeContainerRequested(item, root.character.id)

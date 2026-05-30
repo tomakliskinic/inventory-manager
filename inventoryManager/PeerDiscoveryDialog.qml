@@ -10,11 +10,25 @@ Dialog {
     property bool pickMode: false
     property string pendingPackJson: ""
     property int pendingPackCount: 0
+    property string pendingItemPayloadJson: ""
+    property int pendingItemSourceId: -1
+    property int pendingItemQuantity: 0
+    property string pendingItemLabel: ""
     signal pickedForShare(string uuid, string name, int count)
+    signal pickedForItemShare(string uuid, string name, string itemLabel, int quantity)
 
     function openForShare(json, count) {
         pendingPackJson = json || ""
         pendingPackCount = count
+        pickMode = true
+        open()
+    }
+
+    function openForItem(payloadJson, sourceId, quantity, label) {
+        pendingItemPayloadJson = payloadJson || ""
+        pendingItemSourceId = sourceId
+        pendingItemQuantity = quantity
+        pendingItemLabel = label || ""
         pickMode = true
         open()
     }
@@ -30,6 +44,10 @@ Dialog {
     onClosed: {
         pendingPackJson = ""
         pendingPackCount = 0
+        pendingItemPayloadJson = ""
+        pendingItemSourceId = -1
+        pendingItemQuantity = 0
+        pendingItemLabel = ""
         pickMode = false
     }
 
@@ -120,6 +138,15 @@ Dialog {
                             root.pickedForShare(modelData.uuid,
                                                 modelData.name || "",
                                                 root.pendingPackCount)
+                        } else if (root.pendingItemPayloadJson.length > 0) {
+                            Net.sendInventoryItem(modelData.uuid,
+                                                  root.pendingItemPayloadJson,
+                                                  root.pendingItemSourceId,
+                                                  root.pendingItemQuantity)
+                            root.pickedForItemShare(modelData.uuid,
+                                                    modelData.name || "",
+                                                    root.pendingItemLabel,
+                                                    root.pendingItemQuantity)
                         }
                         root.close()
                     }

@@ -38,6 +38,8 @@ qt_add_qml_module(appinventoryManager
         InventoryRowDelegate.qml
         PeerDiscoveryDialog.qml
         IncomingShareDialog.qml
+        ConfirmShareItemDialog.qml
+        IncomingItemDialog.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp

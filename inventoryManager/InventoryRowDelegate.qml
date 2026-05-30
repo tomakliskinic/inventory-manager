@@ -14,6 +14,7 @@ ItemDelegate {
     signal editRequested(var item)
     signal moveRequested(var item)
     signal removeRequested(var item)
+    signal shareRequested(var item)
 
     Layout.fillWidth: true
     padding: 4
@@ -73,6 +74,10 @@ ItemDelegate {
             MenuItem {
                 text: qsTr("Move")
                 onTriggered: root.moveRequested(modelData)
+            }
+            MenuItem {
+                text: qsTr("Share…")
+                onTriggered: root.shareRequested(modelData)
             }
             MenuItem {
                 text: qsTr("Remove")

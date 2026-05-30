@@ -85,6 +85,8 @@ ApplicationWindow {
                  && !catalogDeleteConfirm.opened
                  && !peerDiscoveryDialog.opened
                  && !incomingShareDialog.opened
+                 && !confirmShareItemDialog.opened
+                 && !incomingItemDialog.opened
                  && !quitConfirm.opened
         onActivated: {
             if (stack.depth > 1) stack.pop()
@@ -618,6 +620,7 @@ ApplicationWindow {
                 if (itemDef && itemDef.id)
                     itemDefinitionViewDialog.openFor(itemDef)
             }
+            onShareItemRequested: it => confirmShareItemDialog.openFor(it)
         }
     }
 
@@ -761,6 +764,31 @@ ApplicationWindow {
             if (stack.currentItem && stack.currentItem.exitSelectionMode)
                 stack.currentItem.exitSelectionMode()
         }
+        onPickedForItemShare: (uuid, name, itemLabel, quantity) => {
+            const what = quantity > 1 ? qsTr("%1× %2").arg(quantity).arg(itemLabel) : itemLabel
+            notifyInfo(qsTr("Sending %1 to %2…").arg(what).arg(name || uuid))
+        }
+    }
+
+    ConfirmShareItemDialog {
+        id: confirmShareItemDialog
+        onConfirmed: (inventoryItemId, quantity, label) => {
+            const payload = DB.buildInventoryItemShareJson(inventoryItemId, quantity)
+            if (!payload || payload.length === 0) {
+                notifyError(DB.lastError() || qsTr("Couldn't prepare item for sharing."))
+                return
+            }
+            peerDiscoveryDialog.openForItem(payload, inventoryItemId, quantity, label)
+        }
+    }
+
+    IncomingItemDialog {
+        id: incomingItemDialog
+        onImported: (characterId, newItemId) => {
+            refreshCurrentDetail()
+            notifyInfo(qsTr("Item accepted."))
+        }
+        onImportFailed: reason => notifyError(reason)
     }
 
     IncomingShareDialog {
@@ -787,6 +815,23 @@ ApplicationWindow {
         }
         function onShareReceived(sender, count, packJson) {
             incomingShareDialog.openFor(sender, count, packJson)
+        }
+        function onItemTransferAccepted(uuid, name, sourceItemId, quantity) {
+            if (DB.commitOutgoingShare(sourceItemId, quantity)) {
+                refreshCurrentDetail()
+                notifyInfo(qsTr("Gave item to %1").arg(name || uuid))
+            } else {
+                notifyError(DB.lastError() || qsTr("Couldn't remove shared item locally."))
+            }
+        }
+        function onItemTransferDeclined(uuid, name) {
+            notifyInfo(qsTr("%1 declined the item").arg(name || uuid))
+        }
+        function onItemTransferFailed(uuid, reason) {
+            notifyError(qsTr("Item transfer failed: %1").arg(reason))
+        }
+        function onItemTransferReceived(sender, itemName, payloadJson) {
+            incomingItemDialog.openFor(sender, itemName, payloadJson)
         }
     }
 
