@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-05-30
+- Hand off individual inventory items to another player on the same network: pick an item from a character's inventory, choose a quantity for stackable items, pick a peer; receiver picks which of their characters receives it and sees an extra note if the item is unknown homebrew that will be added to their catalog
+- Containers travel with their contents — giving away a stuffed backpack hands the whole subtree across in a single transfer
+- Two-phase accept/decline: the sender's item only leaves their inventory after the receiver explicitly accepts, so a declined transfer leaves both sides unchanged
+
+### 2026-05-26
+- Local network sharing of homebrew packs: auto-discovery of other app instances on the same network via UDP broadcast (3 s refresh, 10 s expiry), peer list in a new "Peers" entry on the item catalog
+- Tap a peer to share the currently selected homebrew items (or the whole pack); receiver gets an accept/decline prompt showing the sender and item count, with the existing skip-by-name-conflict import rules
+- Device name editable in the Peers dialog, persisted across launches; defaults to the system hostname
+
 ### 2026-05-24
 - Dark mode toggle (sun/moon button in the character list header) persisted across launches
 - Page toolbar stays Material Indigo with white text in both themes so the top banner reads consistently
