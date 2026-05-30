@@ -25,6 +25,9 @@ ApplicationWindow {
     property bool confirmedQuit: false
     readonly property bool isNarrow: width < 480
 
+    property string outboundItemLabel: ""
+    property string outboundPeerName: ""
+
     Component.onCompleted: refresh()
 
     function refresh() {
@@ -766,7 +769,8 @@ ApplicationWindow {
         }
         onPickedForItemShare: (uuid, name, itemLabel, quantity) => {
             const what = quantity > 1 ? qsTr("%1× %2").arg(quantity).arg(itemLabel) : itemLabel
-            notifyInfo(qsTr("Sending %1 to %2…").arg(what).arg(name || uuid))
+            window.outboundItemLabel = what
+            window.outboundPeerName = name || uuid
         }
     }
 
@@ -816,22 +820,37 @@ ApplicationWindow {
         function onShareReceived(sender, count, packJson) {
             incomingShareDialog.openFor(sender, count, packJson)
         }
-        function onItemTransferAccepted(uuid, name, sourceItemId, quantity) {
+        function onItemTransferAccepted(uuid, name, sourceItemId, quantity, itemLabel) {
+            window.outboundItemLabel = ""
+            window.outboundPeerName = ""
             if (DB.commitOutgoingShare(sourceItemId, quantity)) {
                 refreshCurrentDetail()
-                notifyInfo(qsTr("Gave item to %1").arg(name || uuid))
+                const what = itemLabel || qsTr("item")
+                notifyInfo(qsTr("Gave %1 to %2").arg(what).arg(name || uuid))
             } else {
                 notifyError(DB.lastError() || qsTr("Couldn't remove shared item locally."))
             }
         }
-        function onItemTransferDeclined(uuid, name) {
-            notifyInfo(qsTr("%1 declined the item").arg(name || uuid))
+        function onItemTransferDeclined(uuid, name, itemLabel) {
+            window.outboundItemLabel = ""
+            window.outboundPeerName = ""
+            const what = itemLabel || qsTr("item")
+            notifyInfo(qsTr("%1 declined %2").arg(name || uuid).arg(what))
         }
-        function onItemTransferFailed(uuid, reason) {
-            notifyError(qsTr("Item transfer failed: %1").arg(reason))
+        function onItemTransferFailed(uuid, itemLabel, reason) {
+            window.outboundItemLabel = ""
+            window.outboundPeerName = ""
+            const what = itemLabel || qsTr("item")
+            notifyError(qsTr("Transfer of %1 failed: %2").arg(what).arg(reason))
         }
         function onItemTransferReceived(sender, itemName, payloadJson) {
             incomingItemDialog.openFor(sender, itemName, payloadJson)
+        }
+        function onIncomingTransferCanceled() {
+            if (incomingItemDialog.opened) {
+                incomingItemDialog.close()
+                notifyInfo(qsTr("Sender canceled the transfer."))
+            }
         }
     }
 
@@ -955,6 +974,55 @@ ApplicationWindow {
             else
                 notifyInfo(qsTr("Imported %1, skipped %2 (already exist): %3")
                     .arg(count).arg(skipped.length).arg(skipped.join(", ")))
+        }
+    }
+
+    Popup {
+        id: transferBanner
+        modal: false
+        focus: false
+        closePolicy: Popup.NoAutoClose
+        visible: window.outboundItemLabel.length > 0
+
+        x: 16
+        y: parent.height - height - 16 - (errorBanner.opened ? errorBanner.height + 8 : 0)
+        width: parent.width - 32
+        height: 56
+        z: 99
+
+        background: Rectangle {
+            color: Material.color(Material.Indigo, Material.Shade700)
+            radius: 4
+        }
+
+        contentItem: RowLayout {
+            spacing: 12
+
+            BusyIndicator {
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                running: transferBanner.visible
+                Material.foreground: "white"
+            }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Sending %1 to %2…")
+                        .arg(window.outboundItemLabel)
+                        .arg(window.outboundPeerName)
+                color: "white"
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+            }
+            Button {
+                text: qsTr("Cancel")
+                flat: true
+                Material.foreground: "white"
+                onClicked: {
+                    Net.cancelOutboundTransfer()
+                    window.outboundItemLabel = ""
+                    window.outboundPeerName = ""
+                }
+            }
         }
     }
 

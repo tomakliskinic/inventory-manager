@@ -142,7 +142,8 @@ Dialog {
                             Net.sendInventoryItem(modelData.uuid,
                                                   root.pendingItemPayloadJson,
                                                   root.pendingItemSourceId,
-                                                  root.pendingItemQuantity)
+                                                  root.pendingItemQuantity,
+                                                  root.pendingItemLabel)
                             root.pickedForItemShare(modelData.uuid,
                                                     modelData.name || "",
                                                     root.pendingItemLabel,

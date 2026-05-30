@@ -36,8 +36,10 @@ public:
     Q_INVOKABLE void sendInventoryItem(const QString &peerUuid,
                                        const QString &payloadJson,
                                        int sourceItemId,
-                                       int sharedQuantity);
+                                       int sharedQuantity,
+                                       const QString &itemLabel);
     Q_INVOKABLE void respondToItemTransfer(bool accepted);
+    Q_INVOKABLE void cancelOutboundTransfer();
 
 signals:
     void deviceNameChanged();
@@ -52,9 +54,15 @@ signals:
     void itemTransferAccepted(const QString &peerUuid,
                               const QString &peerName,
                               int sourceItemId,
-                              int sharedQuantity);
-    void itemTransferDeclined(const QString &peerUuid, const QString &peerName);
-    void itemTransferFailed(const QString &peerUuid, const QString &reason);
+                              int sharedQuantity,
+                              const QString &itemLabel);
+    void itemTransferDeclined(const QString &peerUuid,
+                              const QString &peerName,
+                              const QString &itemLabel);
+    void itemTransferFailed(const QString &peerUuid,
+                            const QString &itemLabel,
+                            const QString &reason);
+    void incomingTransferCanceled();
 
 private slots:
     void onReadyRead();
@@ -82,6 +90,7 @@ private:
     static constexpr int BroadcastIntervalMs = 3000;
     static constexpr int PruneIntervalMs = 2000;
     static constexpr qint64 PeerTtlMs = 10000;
+    static constexpr int OutboundTimeoutMs = 30000;
 
     QString m_deviceName;
     QString m_instanceUuid;
@@ -100,9 +109,11 @@ private:
     QPointer<QTcpSocket> m_outboundSocket;
     QString m_outboundPeerUuid;
     QString m_outboundPeerName;
+    QString m_outboundItemLabel;
     int m_outboundSourceItemId = -1;
     int m_outboundSharedQty = 0;
     QByteArray m_outboundResponseBuffer;
+    QTimer *m_outboundTimeout = nullptr;
 };
 
 #endif // NETWORKMANAGER_H

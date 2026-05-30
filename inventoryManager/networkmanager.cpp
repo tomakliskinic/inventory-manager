@@ -296,30 +296,31 @@ void NetworkManager::sendPackJson(const QString &peerUuid, const QString &packJs
 void NetworkManager::sendInventoryItem(const QString &peerUuid,
                                        const QString &payloadJson,
                                        int sourceItemId,
-                                       int sharedQuantity)
+                                       int sharedQuantity,
+                                       const QString &itemLabel)
 {
     if (m_outboundSocket) {
-        emit itemTransferFailed(peerUuid, tr("Another transfer is already in progress"));
+        emit itemTransferFailed(peerUuid, itemLabel, tr("Another transfer is already in progress"));
         return;
     }
     if (!m_peerMap.contains(peerUuid)) {
-        emit itemTransferFailed(peerUuid, tr("Peer no longer available"));
+        emit itemTransferFailed(peerUuid, itemLabel, tr("Peer no longer available"));
         return;
     }
     const PeerEntry p = m_peerMap[peerUuid];
     if (p.tcpPort == 0) {
-        emit itemTransferFailed(peerUuid, tr("Peer did not advertise a TCP port"));
+        emit itemTransferFailed(peerUuid, itemLabel, tr("Peer did not advertise a TCP port"));
         return;
     }
     if (payloadJson.isEmpty()) {
-        emit itemTransferFailed(peerUuid, tr("Item payload is empty"));
+        emit itemTransferFailed(peerUuid, itemLabel, tr("Item payload is empty"));
         return;
     }
 
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(payloadJson.toUtf8(), &err);
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        emit itemTransferFailed(peerUuid, tr("Item payload is not valid JSON: %1").arg(err.errorString()));
+        emit itemTransferFailed(peerUuid, itemLabel, tr("Item payload is not valid JSON: %1").arg(err.errorString()));
         return;
     }
     QJsonObject env = doc.object();
@@ -330,6 +331,7 @@ void NetworkManager::sendInventoryItem(const QString &peerUuid,
     m_outboundSocket = sock;
     m_outboundPeerUuid = peerUuid;
     m_outboundPeerName = p.name;
+    m_outboundItemLabel = itemLabel;
     m_outboundSourceItemId = sourceItemId;
     m_outboundSharedQty = sharedQuantity;
     m_outboundResponseBuffer.clear();
@@ -347,16 +349,19 @@ void NetworkManager::sendInventoryItem(const QString &peerUuid,
                 : QString();
             if (status == QLatin1String("accepted")) {
                 emit itemTransferAccepted(m_outboundPeerUuid, m_outboundPeerName,
-                                          m_outboundSourceItemId, m_outboundSharedQty);
+                                          m_outboundSourceItemId, m_outboundSharedQty,
+                                          m_outboundItemLabel);
             } else {
-                emit itemTransferDeclined(m_outboundPeerUuid, m_outboundPeerName);
+                emit itemTransferDeclined(m_outboundPeerUuid, m_outboundPeerName,
+                                          m_outboundItemLabel);
             }
             sock->disconnectFromHost();
         }
     });
     connect(sock, &QTcpSocket::errorOccurred, this, [this, sock](QAbstractSocket::SocketError) {
         const QString uuid = m_outboundPeerUuid;
-        emit itemTransferFailed(uuid, sock->errorString());
+        const QString label = m_outboundItemLabel;
+        emit itemTransferFailed(uuid, label, sock->errorString());
     });
     connect(sock, &QTcpSocket::disconnected, this, [this, sock]() {
         if (m_outboundSocket == sock)
@@ -364,18 +369,36 @@ void NetworkManager::sendInventoryItem(const QString &peerUuid,
         sock->deleteLater();
     });
 
+    m_outboundTimeout = new QTimer(this);
+    m_outboundTimeout->setSingleShot(true);
+    m_outboundTimeout->setInterval(OutboundTimeoutMs);
+    connect(m_outboundTimeout, &QTimer::timeout, this, [this]() {
+        if (!m_outboundSocket) return;
+        qDebug() << "NetworkManager: outbound transfer timed out";
+        const QString uuid = m_outboundPeerUuid;
+        const QString label = m_outboundItemLabel;
+        emit itemTransferFailed(uuid, label, tr("Transfer timed out"));
+        m_outboundSocket->disconnectFromHost();
+    });
+    m_outboundTimeout->start();
+
     qDebug() << "NetworkManager: sending inventory item to" << p.name
              << "at" << p.address << ":" << p.tcpPort
              << "(" << finalBytes.size() << "bytes)";
     sock->connectToHost(p.address, p.tcpPort);
 }
 
+void NetworkManager::cancelOutboundTransfer()
+{
+    if (!m_outboundSocket) return;
+    qDebug() << "NetworkManager: outbound transfer canceled by user";
+    m_outboundSocket->disconnectFromHost();
+}
+
 void NetworkManager::respondToItemTransfer(bool accepted)
 {
-    if (!m_inboundResponseSocket) {
-        qWarning() << "NetworkManager: respondToItemTransfer called with no pending socket";
+    if (!m_inboundResponseSocket)
         return;
-    }
     const QJsonObject obj{{"status", accepted ? "accepted" : "declined"}};
     const QByteArray resp = QJsonDocument(obj).toJson(QJsonDocument::Compact);
     m_inboundResponseSocket->write(packMessage(resp));
@@ -388,9 +411,15 @@ void NetworkManager::resetOutboundState()
     m_outboundSocket = nullptr;
     m_outboundPeerUuid.clear();
     m_outboundPeerName.clear();
+    m_outboundItemLabel.clear();
     m_outboundSourceItemId = -1;
     m_outboundSharedQty = 0;
     m_outboundResponseBuffer.clear();
+    if (m_outboundTimeout) {
+        m_outboundTimeout->stop();
+        m_outboundTimeout->deleteLater();
+        m_outboundTimeout = nullptr;
+    }
 }
 
 void NetworkManager::onNewTcpConnection()
@@ -410,8 +439,11 @@ void NetworkManager::onNewTcpConnection()
         });
         connect(sock, &QTcpSocket::disconnected, this, [this, sock]() {
             m_inboundBuffers.remove(sock);
-            if (m_inboundResponseSocket == sock)
+            if (m_inboundResponseSocket == sock) {
                 m_inboundResponseSocket = nullptr;
+                qDebug() << "NetworkManager: inbound socket lost before user responded";
+                emit incomingTransferCanceled();
+            }
             sock->deleteLater();
         });
     }
