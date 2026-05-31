@@ -81,8 +81,11 @@ Dialog {
             }
 
             Label { text: qsTr("Cost") }
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
+                columns: (ApplicationWindow.window && ApplicationWindow.window.isNarrow) ? 1 : 2
+                rowSpacing: 4
+                columnSpacing: 4
                 SpinBox {
                     id: itemDefCostAmountField
                     from: 0; to: 99999
@@ -91,7 +94,8 @@ Dialog {
                 }
                 ComboBox {
                     id: itemDefCostCurrencyField
-                    Layout.preferredWidth: 80
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: parent.columns === 1 ? -1 : 80
                     model: ["CP", "SP", "EP", "GP", "PP"]
                     currentIndex: 3
                 }

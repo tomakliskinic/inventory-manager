@@ -38,7 +38,6 @@ Dialog {
     Overlay.modal: Rectangle { color: "#80000000" }
     anchors.centerIn: parent
     width: Math.min(parent.width - 32, 480)
-    height: Math.min(parent.height - 64, 520)
     standardButtons: pickMode ? Dialog.Cancel : Dialog.Close
 
     onClosed: {
@@ -77,7 +76,8 @@ Dialog {
 
         Item {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: 320
+            Layout.minimumHeight: 200
 
             ColumnLayout {
                 id: emptyState

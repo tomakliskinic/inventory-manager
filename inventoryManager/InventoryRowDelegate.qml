@@ -52,7 +52,10 @@ ItemDelegate {
         }
         Label {
             text: {
-                const own = (modelData.weight_lb * modelData.quantity).toFixed(1)
+                const perUnit = (Number.isFinite(modelData.fixed_weight) && modelData.fixed_weight > 0)
+                    ? modelData.fixed_weight
+                    : (modelData.weight_lb || 0)
+                const own = (perUnit * modelData.quantity).toFixed(1)
                 if (!modelData.is_container) return qsTr("%1 lb").arg(own)
                 const agg = root.aggregateWeightFn(modelData).toFixed(1)
                 if (agg === own) return qsTr("%1 lb").arg(own)
