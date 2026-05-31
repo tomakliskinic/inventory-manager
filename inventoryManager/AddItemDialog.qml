@@ -97,6 +97,15 @@ Dialog {
             model: root.containerOptions
             textRole: "name"
             valueRole: "id"
+            delegate: ItemDelegate {
+                width: ListView.view.width
+                highlighted: parentCombo.highlightedIndex === index
+                contentItem: Label {
+                    text: modelData.name
+                    wrapMode: Text.Wrap
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
         }
     }
 

@@ -33,6 +33,15 @@ Dialog {
             model: root.destinationOptions
             textRole: "name"
             valueRole: "id"
+            delegate: ItemDelegate {
+                width: ListView.view.width
+                highlighted: moveDestCombo.highlightedIndex === index
+                contentItem: Label {
+                    text: modelData.name
+                    wrapMode: Text.Wrap
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
         }
     }
 

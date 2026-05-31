@@ -96,6 +96,15 @@ Dialog {
                 model: root.destinationOptions
                 textRole: "name"
                 valueRole: "id"
+                delegate: ItemDelegate {
+                    width: ListView.view.width
+                    highlighted: moveContentsCombo.highlightedIndex === index
+                    contentItem: Label {
+                        text: modelData.name
+                        wrapMode: Text.Wrap
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
             }
             Button {
                 text: qsTr("Move to")
