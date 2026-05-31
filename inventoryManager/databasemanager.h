@@ -46,18 +46,12 @@ public:
 
     Q_INVOKABLE QVariantList getItemDefinitions (int itemType = -1);
     Q_INVOKABLE QVariantMap getItemDefinition(int id);
-    Q_INVOKABLE int createItemDefinition(const QVariantMap &data);
-    Q_INVOKABLE bool updateItemDefinition(int id, const QVariantMap &data);
     Q_INVOKABLE bool deleteItemDefinition(int id);
     Q_INVOKABLE int saveItemDefinition(int id, const QVariantMap &itemData,
                                         const QVariantMap &weaponData,
                                         const QVariantMap &armorData);
     Q_INVOKABLE QVariantMap getWeaponDetails(int itemId);
-    Q_INVOKABLE bool setWeaponDetails(int itemId, const QVariantMap &data);
-    Q_INVOKABLE bool clearWeaponDetails(int itemId);
     Q_INVOKABLE QVariantMap getArmorDetails(int itemId);
-    Q_INVOKABLE bool setArmorDetails(int itemId, const QVariantMap &data);
-    Q_INVOKABLE bool clearArmorDetails(int itemId);
 
     Q_INVOKABLE int addInventoryItem(int characterId, int itemId, int quantity = 1, int parentInventoryItemId = -1);
     Q_INVOKABLE bool updateInventoryItem(int id, const QVariantMap &data);
@@ -94,6 +88,13 @@ private:
     bool wouldCreateCycle(int itemId, int parentId);
     double interiorWeight(int rootId, int excludeItemId = -1);
     bool wouldExceedCapacity(int parentId, double additionalWeight, int excludeItemId = -1);
+
+    int createItemDefinition(const QVariantMap &data);
+    bool updateItemDefinition(int id, const QVariantMap &data);
+    bool setWeaponDetails(int itemId, const QVariantMap &data);
+    bool clearWeaponDetails(int itemId);
+    bool setArmorDetails(int itemId, const QVariantMap &data);
+    bool clearArmorDetails(int itemId);
 
     QSqlDatabase m_db;
     bool m_initialized = false;

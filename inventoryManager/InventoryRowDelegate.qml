@@ -37,12 +37,29 @@ ItemDelegate {
             Layout.preferredWidth: modelData.depth * 20
             visible: modelData.depth > 0
         }
-        Label {
-            text: (modelData.is_container ? "📦 " : "")
-                  + (modelData.custom_name || modelData.item_name)
-                  + (modelData.is_equipped ? " ✓" : "")
+        ColumnLayout {
             Layout.fillWidth: true
-            elide: Text.ElideRight
+            spacing: 0
+            Label {
+                text: (modelData.is_container ? "📦 " : "")
+                      + (modelData.custom_name || modelData.item_name)
+                      + (modelData.is_equipped ? " ✓" : "")
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+            }
+            Label {
+                visible: modelData.is_container
+                         && Number.isFinite(modelData.container_weight_capacity)
+                         && modelData.container_weight_capacity > 0
+                text: visible
+                    ? qsTr("(%1/%2 lb)")
+                        .arg(DB.getContainerUsedWeight(modelData.id).toFixed(1))
+                        .arg(modelData.container_weight_capacity)
+                    : ""
+                Layout.fillWidth: true
+                opacity: 0.5
+                font.pixelSize: 12
+            }
         }
         Label {
             text: qsTr("×%1").arg(modelData.quantity)
