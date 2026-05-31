@@ -13,7 +13,7 @@ ToolButton {
         const overlay = Overlay.overlay
         const sceneY = root.mapToItem(overlay, 0, 0).y
         const menuH = menu.implicitHeight
-        menu.y = (sceneY + root.height + menuH + 8 > overlay.height)
+        menu.y = (sceneY + root.height + menuH + 64 > overlay.height)
               ? -menuH
               : root.height
         menu.open()

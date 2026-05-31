@@ -91,6 +91,7 @@ Dialog {
                 textRole: "name"
                 valueRole: "id"
                 currentIndex: 0
+                Component.onCompleted: popup.bottomMargin = 80
                 onActivated: root.selectedCharacterId = currentValue
             }
         }

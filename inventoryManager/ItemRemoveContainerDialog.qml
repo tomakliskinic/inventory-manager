@@ -96,6 +96,7 @@ Dialog {
                 model: root.destinationOptions
                 textRole: "name"
                 valueRole: "id"
+                Component.onCompleted: popup.bottomMargin = 80
                 delegate: ItemDelegate {
                     width: ListView.view.width
                     highlighted: moveContentsCombo.highlightedIndex === index

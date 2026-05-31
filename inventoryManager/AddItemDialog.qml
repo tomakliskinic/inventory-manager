@@ -80,6 +80,7 @@ Dialog {
             model: root.filteredItemDefs
             textRole: "name"
             valueRole: "id"
+            Component.onCompleted: popup.bottomMargin = 80
         }
 
         Label { text: qsTr("Quantity") }
@@ -97,6 +98,7 @@ Dialog {
             model: root.containerOptions
             textRole: "name"
             valueRole: "id"
+            Component.onCompleted: popup.bottomMargin = 80
             delegate: ItemDelegate {
                 width: ListView.view.width
                 highlighted: parentCombo.highlightedIndex === index
