@@ -12,6 +12,7 @@ Dialog {
 
     signal saved()
     signal failed(string message)
+    signal riftDetected(var preview)
 
     title: qsTr("Move Item")
     modal: true
@@ -87,12 +88,18 @@ Dialog {
 
     onAccepted: {
         if (item && moveDestCombo.currentValue !== undefined) {
-            const ok = DB.updateInventoryItem(item.id, {
-                "parent_inventory_item_id": moveDestCombo.currentValue
-            })
-            if (!ok)
-                failed(DB.lastError() || qsTr("Couldn't move item."))
-            saved()
+            const targetParent = moveDestCombo.currentValue
+            const preview = DB.previewMoveRift(item.id, targetParent)
+            if (preview && Object.keys(preview).length > 0) {
+                riftDetected(preview)
+            } else {
+                const ok = DB.updateInventoryItem(item.id, {
+                    "parent_inventory_item_id": targetParent
+                })
+                if (!ok)
+                    failed(DB.lastError() || qsTr("Couldn't move item."))
+                saved()
+            }
         }
         item = null
         characterId = -1

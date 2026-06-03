@@ -22,6 +22,11 @@ Dialog {
         const t = itemDefTypeField.currentValue
         return t !== Enums.ItemType.Weapon && t !== Enums.ItemType.Armor
     }
+    readonly property bool extradimensionalEligible: {
+        return itemDefTypeField.currentValue === Enums.ItemType.Magic
+            && containerEligible
+            && itemDefIsContainerField.checked
+    }
 
     onOpened: {
         const okBtn = standardButton(Dialog.Ok)
@@ -69,6 +74,7 @@ Dialog {
                 onActivated: {
                     if (currentValue !== Enums.ItemType.Weapon) weaponForm.reset()
                     if (currentValue !== Enums.ItemType.Armor)  armorForm.reset()
+                    if (currentValue !== Enums.ItemType.Magic)  itemDefFixedWeightField.text = ""
                 }
             }
 
@@ -146,12 +152,12 @@ Dialog {
 
             Label {
                 text: qsTr("Fixed weight (lb)")
-                visible: root.containerEligible && itemDefIsContainerField.checked
+                visible: root.extradimensionalEligible
             }
             TextField {
                 id: itemDefFixedWeightField
                 Layout.fillWidth: true
-                visible: root.containerEligible && itemDefIsContainerField.checked
+                visible: root.extradimensionalEligible
                 validator: DoubleValidator { bottom: 0; decimals: 2; notation: DoubleValidator.StandardNotation }
                 placeholderText: qsTr("e.g. Bag of Holding")
             }
@@ -292,8 +298,10 @@ Dialog {
         if (containerOn) {
             const cap = parseFloat(itemDefCapacityField.text)
             if (cap > 0) data.container_weight_capacity = cap
-            const fw = parseFloat(itemDefFixedWeightField.text)
-            if (fw > 0) data.fixed_weight = fw
+            if (extradimensionalEligible) {
+                const fw = parseFloat(itemDefFixedWeightField.text)
+                if (fw > 0) data.fixed_weight = fw
+            }
         }
 
         const weaponData = weaponForm.serialize()

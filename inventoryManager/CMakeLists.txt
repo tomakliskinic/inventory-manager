@@ -40,6 +40,7 @@ qt_add_qml_module(appinventoryManager
         IncomingShareDialog.qml
         ConfirmShareItemDialog.qml
         IncomingItemDialog.qml
+        RiftConfirmDialog.qml
     SOURCES
         enums.h
         databasemanager.h databasemanager.cpp

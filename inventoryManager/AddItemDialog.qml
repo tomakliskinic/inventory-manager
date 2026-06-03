@@ -14,6 +14,7 @@ Dialog {
 
     signal saved()
     signal failed(string message)
+    signal riftDetected(var preview)
 
     readonly property var filteredItemDefs: {
         let result = itemDefs
@@ -140,10 +141,16 @@ Dialog {
 
     onAccepted: {
         if (characterId > 0 && itemCombo.currentValue) {
-            const newId = DB.addInventoryItem(characterId, itemCombo.currentValue, qtyField.value, parentCombo.currentValue)
-            if (newId < 0)
-                failed(DB.lastError() || qsTr("Couldn't add item."))
-            saved()
+            const parentId = parentCombo.currentValue
+            const preview = DB.previewExtradimensionalRift(itemCombo.currentValue, parentId)
+            if (preview && Object.keys(preview).length > 0) {
+                riftDetected(preview)
+            } else {
+                const newId = DB.addInventoryItem(characterId, itemCombo.currentValue, qtyField.value, parentId)
+                if (newId < 0)
+                    failed(DB.lastError() || qsTr("Couldn't add item."))
+                saved()
+            }
         }
         characterId = -1
     }

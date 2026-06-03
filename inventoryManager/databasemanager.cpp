@@ -1929,6 +1929,199 @@ double DatabaseManager::getContainerUsedWeight(int inventoryItemId)
     return interiorWeight(inventoryItemId);
 }
 
+bool DatabaseManager::isExtradimensionalDef(int itemDefinitionId)
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT fixed_weight FROM item_definitions WHERE id = :id");
+    q.bindValue(":id", itemDefinitionId);
+    if (!q.exec() || !q.next())
+        return false;
+    const QVariant v = q.value(0);
+    return !v.isNull() && v.toDouble() > 0.0;
+}
+
+int DatabaseManager::firstExtradimensionalAncestor(int inventoryItemId)
+{
+    int current = inventoryItemId;
+    while (current > 0) {
+        QSqlQuery q(m_db);
+        q.prepare(R"(SELECT idef.fixed_weight, ii.parent_inventory_item_id
+            FROM inventory_items ii
+            JOIN item_definitions idef ON ii.item_id = idef.id
+            WHERE ii.id = :id)");
+        q.bindValue(":id", current);
+        if (!q.exec() || !q.next())
+            return -1;
+        const QVariant fw = q.value(0);
+        if (!fw.isNull() && fw.toDouble() > 0.0)
+            return current;
+        const QVariant pv = q.value(1);
+        current = pv.isNull() ? -1 : pv.toInt();
+    }
+    return -1;
+}
+
+QVariantList DatabaseManager::collectSubtreeNames(int rootInventoryItemId)
+{
+    QVariantList list;
+    if (rootInventoryItemId <= 0)
+        return list;
+
+    QSqlQuery q(m_db);
+    q.prepare(R"(WITH RECURSIVE tree AS (
+        SELECT ii.id, ii.quantity, ii.custom_name, idef.name AS item_name, 0 AS depth
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.id = :rootId
+        UNION ALL
+        SELECT ii.id, ii.quantity, ii.custom_name, idef.name AS item_name, t.depth + 1
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        JOIN tree t ON ii.parent_inventory_item_id = t.id
+    )
+    SELECT id, quantity, custom_name, item_name, depth FROM tree)");
+    q.bindValue(":rootId", rootInventoryItemId);
+    if (!q.exec())
+        return list;
+
+    while (q.next()) {
+        QVariantMap row;
+        row["id"] = q.value(0).toInt();
+        row["quantity"] = q.value(1).toInt();
+        const QVariant cn = q.value(2);
+        row["name"] = cn.isNull() ? q.value(3).toString() : cn.toString();
+        row["depth"] = q.value(4).toInt();
+        list.append(row);
+    }
+    return list;
+}
+
+QVariantMap DatabaseManager::previewExtradimensionalRift(int itemDefinitionId, int parentInventoryItemId)
+{
+    QVariantMap result;
+    if (!isExtradimensionalDef(itemDefinitionId))
+        return result;
+    const int targetId = firstExtradimensionalAncestor(parentInventoryItemId);
+    if (targetId <= 0)
+        return result;
+
+    QSqlQuery srcQ(m_db);
+    srcQ.prepare("SELECT name FROM item_definitions WHERE id = :id");
+    srcQ.bindValue(":id", itemDefinitionId);
+    if (!srcQ.exec() || !srcQ.next())
+        return result;
+
+    QSqlQuery tgtQ(m_db);
+    tgtQ.prepare(R"(SELECT ii.custom_name, idef.name
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.id = :id)");
+    tgtQ.bindValue(":id", targetId);
+    if (!tgtQ.exec() || !tgtQ.next())
+        return result;
+    const QVariant tgtCustom = tgtQ.value(0);
+
+    result["isAdd"] = true;
+    result["sourceId"] = -1;
+    result["sourceName"] = srcQ.value(0).toString();
+    result["sourceContents"] = QVariantList();
+    result["targetId"] = targetId;
+    result["targetName"] = tgtCustom.isNull() ? tgtQ.value(1).toString() : tgtCustom.toString();
+    result["targetContents"] = collectSubtreeNames(targetId);
+    return result;
+}
+
+QVariantMap DatabaseManager::previewMoveRift(int inventoryItemId, int parentInventoryItemId)
+{
+    QVariantMap result;
+
+    QSqlQuery srcQ(m_db);
+    srcQ.prepare(R"(SELECT ii.custom_name, ii.item_id, ii.parent_inventory_item_id, idef.name
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.id = :id)");
+    srcQ.bindValue(":id", inventoryItemId);
+    if (!srcQ.exec() || !srcQ.next())
+        return result;
+
+    const int srcItemDef = srcQ.value(1).toInt();
+    if (!isExtradimensionalDef(srcItemDef))
+        return result;
+
+    const int newTarget = firstExtradimensionalAncestor(parentInventoryItemId);
+    if (newTarget <= 0 || newTarget == inventoryItemId)
+        return result;
+
+    const QVariant currentParentVal = srcQ.value(2);
+    const int currentParent = currentParentVal.isNull() ? -1 : currentParentVal.toInt();
+    const int currentTarget = firstExtradimensionalAncestor(currentParent);
+    if (newTarget == currentTarget)
+        return result;
+
+    const int targetId = newTarget;
+
+    QSqlQuery tgtQ(m_db);
+    tgtQ.prepare(R"(SELECT ii.custom_name, idef.name
+        FROM inventory_items ii
+        JOIN item_definitions idef ON ii.item_id = idef.id
+        WHERE ii.id = :id)");
+    tgtQ.bindValue(":id", targetId);
+    if (!tgtQ.exec() || !tgtQ.next())
+        return result;
+
+    const QVariant srcCustom = srcQ.value(0);
+    const QVariant tgtCustom = tgtQ.value(0);
+
+    result["isAdd"] = false;
+    result["sourceId"] = inventoryItemId;
+    result["sourceName"] = srcCustom.isNull() ? srcQ.value(3).toString() : srcCustom.toString();
+    result["sourceContents"] = collectSubtreeNames(inventoryItemId);
+    result["targetId"] = targetId;
+    result["targetName"] = tgtCustom.isNull() ? tgtQ.value(1).toString() : tgtCustom.toString();
+    result["targetContents"] = collectSubtreeNames(targetId);
+    return result;
+}
+
+bool DatabaseManager::destroyExtradimensionalRift(int targetInventoryItemId, int sourceInventoryItemId)
+{
+    if (targetInventoryItemId <= 0) {
+        reportError(QStringLiteral("destroyExtradimensionalRift: invalid target id"));
+        return false;
+    }
+
+    if (!m_db.transaction()) {
+        reportError(QStringLiteral("destroyExtradimensionalRift: could not begin transaction"));
+        return false;
+    }
+
+    auto deleteSubtree = [&](int rootId) -> bool {
+        if (rootId <= 0) return true;
+        QSqlQuery q(m_db);
+        q.prepare(R"(WITH RECURSIVE tree AS (
+            SELECT id FROM inventory_items WHERE id = :rootId
+            UNION ALL
+            SELECT ii.id FROM inventory_items ii
+            JOIN tree t ON ii.parent_inventory_item_id = t.id
+        )
+        DELETE FROM inventory_items WHERE id IN (SELECT id FROM tree))");
+        q.bindValue(":rootId", rootId);
+        return q.exec();
+    };
+
+    if (!deleteSubtree(targetInventoryItemId) || !deleteSubtree(sourceInventoryItemId)) {
+        reportError(QStringLiteral("destroyExtradimensionalRift: delete failed"));
+        m_db.rollback();
+        return false;
+    }
+
+    if (!m_db.commit()) {
+        reportError(QStringLiteral("destroyExtradimensionalRift: commit failed"));
+        m_db.rollback();
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::executeSql(const QString &sql)
 {
     QSqlQuery query(m_db);

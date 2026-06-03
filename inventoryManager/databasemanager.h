@@ -69,6 +69,10 @@ public:
     Q_INVOKABLE double getCarryingCapacity(int characterId);
     Q_INVOKABLE double getContainerUsedWeight(int inventoryItemId);
 
+    Q_INVOKABLE QVariantMap previewExtradimensionalRift(int itemDefinitionId, int parentInventoryItemId);
+    Q_INVOKABLE QVariantMap previewMoveRift(int inventoryItemId, int parentInventoryItemId);
+    Q_INVOKABLE bool destroyExtradimensionalRift(int targetInventoryItemId, int sourceInventoryItemId = -1);
+
 private:
     void reportError(const QString &message);
 
@@ -88,6 +92,10 @@ private:
     bool wouldCreateCycle(int itemId, int parentId);
     double interiorWeight(int rootId, int excludeItemId = -1);
     bool wouldExceedCapacity(int parentId, double additionalWeight, int excludeItemId = -1);
+
+    bool isExtradimensionalDef(int itemDefinitionId);
+    int firstExtradimensionalAncestor(int inventoryItemId);
+    QVariantList collectSubtreeNames(int rootInventoryItemId);
 
     int createItemDefinition(const QVariantMap &data);
     bool updateItemDefinition(int id, const QVariantMap &data);

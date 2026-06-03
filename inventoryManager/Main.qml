@@ -90,6 +90,7 @@ ApplicationWindow {
                  && !incomingShareDialog.opened
                  && !confirmShareItemDialog.opened
                  && !incomingItemDialog.opened
+                 && !riftConfirmDialog.opened
                  && !quitConfirm.opened
         onActivated: {
             if (stack.depth > 1) stack.pop()
@@ -698,6 +699,7 @@ ApplicationWindow {
         id: addItemDialog
         onSaved: refreshCurrentDetail()
         onFailed: msg => notifyError(msg)
+        onRiftDetected: preview => riftConfirmDialog.openFor(preview)
     }
 
     InventoryItemEditDialog {
@@ -748,6 +750,19 @@ ApplicationWindow {
         id: itemMoveDialog
         onSaved: refreshCurrentDetail()
         onFailed: msg => notifyError(msg)
+        onRiftDetected: preview => riftConfirmDialog.openFor(preview)
+    }
+
+    RiftConfirmDialog {
+        id: riftConfirmDialog
+        onConfirmed: (targetId, sourceId) => {
+            if (DB.destroyExtradimensionalRift(targetId, sourceId)) {
+                refreshCurrentDetail()
+                notifyInfo(qsTr("A gate to the Astral Plane opens and closes."))
+            } else {
+                notifyError(DB.lastError() || qsTr("Couldn't tear the rift."))
+            }
+        }
     }
 
     ItemDefinitionViewDialog {
