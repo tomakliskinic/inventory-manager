@@ -1,5 +1,9 @@
 ## Changelog
 
+### 2026-06-03
+- SRD 5.2 Bag of Holding nesting rule honored: placing or moving an extradimensional container (Bag of Holding, Handy Haversack, Portable Hole) into another extradimensional space opens a confirmation dialog listing every item that would be destroyed across both subtrees, then cascade-deletes both bags in one transaction if the user confirms — or leaves everything untouched if they cancel
+- Homebrew item dialog only exposes the "Fixed weight" field on Magic items now, so non-magical containers (Backpack, Quiver, Component Pouch) can't be accidentally configured as extradimensional; switching type away from Magic clears any value already entered
+
 ### 2026-05-30
 - Hand off individual inventory items to another player on the same network: pick an item from a character's inventory, choose a quantity for stackable items, pick a peer; receiver picks which of their characters receives it and sees an extra note if the item is unknown homebrew that will be added to their catalog
 - Containers travel with their contents — giving away a stuffed backpack hands the whole subtree across in a single transfer

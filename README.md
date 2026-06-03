@@ -19,6 +19,7 @@ This application lets players create and manage characters and their inventories
 - Add items to a character's inventory and define quantities; stackable Gear/Tool items auto-merge
 - Move items between containers; remove items with three modes for non-empty containers (spill to parent, delete with contents, move contents elsewhere)
 - **Container system** — organize items in a hierarchical structure (e.g. bags within bags); each container collapses/expands per character
+- **SRD-faithful Bag of Holding rule** — placing or moving an extradimensional container inside another extradimensional space opens a confirmation dialog and, on confirm, cascade-destroys both bags and their contents, mirroring the SRD 5.2 Astral-rift consequence
 - Sort items by name, weight, cost, quantity, or date added; weight and cost sort aggregate container contents
 - Filter items by type, source (SRD / Homebrew), or full-text search with optional description match
 - Automatic calculation of total inventory weight, encumbrance relative to carry capacity, and total inventory value broken into the largest coin denominations — updated in real time on every change
