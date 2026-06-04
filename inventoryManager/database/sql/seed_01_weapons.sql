@@ -111,8 +111,8 @@ INSERT INTO weapon_details (item_id, category, range_type, damage_dice, damage_t
 -- ==============================
 
 INSERT INTO item_definitions (name, item_type, weight_lb, cost, description, source) VALUES
-    ('Arrow',          2, 0.05,  '1 GP', 'Stored in a Quiver.',             0),
-    ('Bolt',           2, 0.075, '1 GP', 'Stored in a Crossbow Bolt Case.', 0),
-    ('Firearm Bullet', 2, 0.2,   '3 GP', 'Stored in a Pouch.',              0),
-    ('Sling Bullet',   2, 0.075, '4 CP', 'Stored in a Pouch.',              0),
-    ('Needle',         2, 0.02,  '1 GP', 'Stored in a Pouch.',              0);
+    ('Arrow',          2, 0.05,  '5 CP', 'Stored in a Quiver. SRD price: 20 for 1 GP.',             0),
+    ('Bolt',           2, 0.075, '5 CP', 'Stored in a Crossbow Bolt Case. SRD price: 20 for 1 GP.', 0),
+    ('Firearm Bullet', 2, 0.2,   '3 SP', 'Stored in a Pouch. SRD price: 10 for 3 GP.',              0),
+    ('Sling Bullet',   2, 0.075, '1 CP', 'Stored in a Pouch. SRD price: 20 for 4 CP.',              0),
+    ('Needle',         2, 0.02,  '2 CP', 'Stored in a Pouch. SRD price: 50 for 1 GP.',              0);

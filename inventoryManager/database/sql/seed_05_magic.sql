@@ -15,9 +15,9 @@ INSERT INTO item_definitions (name, item_type, weight_lb, cost, description,
         1, 900.0, 114.0, 5.0,
         2, 0, 0),
 
-    ('Portable Hole', 4, 0.0, NULL,
+    ('Portable Hole', 4, 0.5, NULL,
         '6-foot-diameter, 10-foot-deep extradimensional hole when unfolded. Folds into cloth. Holds enough air for 1 hour of breathing.',
-        1, NULL, 282.7, 0.0,
+        1, NULL, 282.7, 0.5,
         2, 0, 0),
 
     ('Efficient Quiver', 4, 2.0, NULL,
