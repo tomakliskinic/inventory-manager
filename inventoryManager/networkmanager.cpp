@@ -361,7 +361,11 @@ void NetworkManager::sendInventoryItem(const QString &peerUuid,
     connect(sock, &QTcpSocket::errorOccurred, this, [this, sock](QAbstractSocket::SocketError) {
         const QString uuid = m_outboundPeerUuid;
         const QString label = m_outboundItemLabel;
-        emit itemTransferFailed(uuid, label, sock->errorString());
+        const QString errStr = sock->errorString();
+        emit itemTransferFailed(uuid, label, errStr);
+        if (m_outboundSocket == sock)
+            resetOutboundState();
+        sock->deleteLater();
     });
     connect(sock, &QTcpSocket::disconnected, this, [this, sock]() {
         if (m_outboundSocket == sock)
@@ -377,8 +381,11 @@ void NetworkManager::sendInventoryItem(const QString &peerUuid,
         qDebug() << "NetworkManager: outbound transfer timed out";
         const QString uuid = m_outboundPeerUuid;
         const QString label = m_outboundItemLabel;
+        QTcpSocket *sock = m_outboundSocket;
         emit itemTransferFailed(uuid, label, tr("Transfer timed out"));
-        m_outboundSocket->disconnectFromHost();
+        sock->disconnectFromHost();
+        resetOutboundState();
+        sock->deleteLater();
     });
     m_outboundTimeout->start();
 
