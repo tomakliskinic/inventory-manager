@@ -107,7 +107,7 @@ Page {
     signal shareItemRequested(var item)
 
     readonly property bool isNarrow: ApplicationWindow.window
-                                     ? root.isNarrow
+                                     ? ApplicationWindow.window.isNarrow
                                      : false
 
     readonly property var filteredItems: {
